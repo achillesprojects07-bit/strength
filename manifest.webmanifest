@@ -1,0 +1,9 @@
+{
+  "name": "Calm Strength",
+  "short_name": "CalmStrength",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f7fbf5",
+  "theme_color": "#f7fbf5",
+  "icons": []
+}

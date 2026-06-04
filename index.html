@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Calm Strength</title>
+  <meta name="theme-color" content="#f7fbf5" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <h1 id="greeting">Good morning, Aileen 👋</h1>
+        <p>Let’s protect your elbows and reach your goal.</p>
+      </div>
+      <div class="date-pill">
+        <span>📅</span>
+        <div><strong id="dateText">Today</strong><small id="dayText"></small></div>
+      </div>
+    </header>
+
+    <main>
+      <section class="screen active" id="todayScreen">
+        <article class="card elbow-card">
+          <div class="card-head">
+            <div class="step-title"><span class="step-num">1</span><h2>Elbow Status</h2></div>
+            <button class="link-btn" data-modal="elbowInfo">Why this matters ⓘ</button>
+          </div>
+          <p class="card-question">How are your elbows today?</p>
+          <div class="pain-grid" role="group" aria-label="Elbow pain status">
+            <button class="pain-option green selected" data-pain="green"><span>🙂</span><strong>0–2</strong><small>No / low pain</small></button>
+            <button class="pain-option yellow" data-pain="yellow"><span>😐</span><strong>3</strong><small>Mild pain</small></button>
+            <button class="pain-option red" data-pain="red"><span>☹️</span><strong>4+</strong><small>Moderate / severe</small></button>
+            <button class="pain-option purple" data-pain="nerve"><span>⚡</span><strong>Nerve</strong><small>Numbness / tingling</small></button>
+          </div>
+          <div class="status-banner" id="painBanner"><span>🛡️</span><p><strong>Green day detected</strong> — You’re good to train. We’ll recommend the best plan for today.</p></div>
+        </article>
+
+        <article class="card budget-card">
+          <div class="card-head">
+            <div class="step-title"><span class="step-num">2</span><h2>Today’s Calorie Budget</h2></div>
+            <button class="link-btn" data-modal="budgetInfo">How it works ⓘ</button>
+          </div>
+          <p>Your daily budget is based on your goal and planned workout calories.</p>
+
+          <div class="budget-grid">
+            <div class="budget-main">
+              <small>Ideal Intake</small>
+              <strong><span id="idealCalories">1850</span> <em>cal</em> 🔥</strong>
+              <p>to stay on track today</p>
+            </div>
+            <div class="rings">
+              <div class="ring-card">
+                <h3>Food</h3>
+                <div class="ring" style="--p:0" id="foodRing"><div><strong id="foodLogged">0</strong><small>eaten</small></div></div>
+                <p><strong id="foodLeft">1850 cal left</strong><span>of <b id="foodBudgetSmall">1850</b> cal</span></p>
+              </div>
+              <div class="ring-card">
+                <h3>Movement</h3>
+                <div class="ring blue" style="--p:0" id="moveRing"><div><strong id="moveDone">0</strong><small>/ <b id="moveTargetSmall">500</b> cal</small></div></div>
+                <p><strong id="moveLeft">500 cal left</strong><span>of <b id="moveBudgetSmall">500</b> cal</span></p>
+              </div>
+            </div>
+          </div>
+
+          <div class="live-balance" id="liveBalance">
+            <div><span id="balanceIcon">✅</span><strong id="balanceTitle">On Track</strong></div>
+            <p id="balanceNote">Log food and movement to see your live balance.</p>
+          </div>
+
+          <div class="quick-actions">
+            <button data-action="openFood">🍏 Log Food</button>
+            <button data-action="openWorkout">👟 Log Workout</button>
+            <button data-tab="train">💜 Safe Workouts</button>
+            <button data-modal="goalModal">🎯 Adjust Goal</button>
+          </div>
+        </article>
+
+        <article class="card plan-card">
+          <div class="card-head">
+            <div class="step-title"><span class="step-num">3</span><h2>Today’s Plan</h2></div>
+            <button class="link-btn" data-tab="train">View full plan ›</button>
+          </div>
+          <div class="plan-grid" id="todayPlan"></div>
+        </article>
+        <p class="quote">💚 Small steps today, big changes tomorrow. <span>You’ve got this!</span></p>
+      </section>
+
+      <section class="screen" id="logScreen">
+        <div class="screen-head"><h2>Food & Workout Log</h2><p>Track food, movement, and your budget in real time.</p></div>
+        <article class="card compact">
+          <h3>Add Food</h3>
+          <div class="form-grid">
+            <input id="foodName" placeholder="Food e.g. rice, adobo, egg" />
+            <input id="foodQty" placeholder="Qty e.g. 1 cup, 1 pc" />
+            <input id="foodCals" type="number" min="0" placeholder="Calories" />
+            <select id="mealType"><option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option><option>Drinks</option></select>
+          </div>
+          <div class="helper-row">
+            <button class="secondary" id="estimateFoodBtn">Estimate common food</button>
+            <button id="addFoodBtn">Add Food</button>
+          </div>
+        </article>
+        <article class="card compact">
+          <h3>Add Movement</h3>
+          <div class="form-grid">
+            <input id="workoutName" placeholder="Activity e.g. walk, lower body" />
+            <input id="workoutMins" type="number" min="0" placeholder="Minutes" />
+            <input id="workoutCals" type="number" min="0" placeholder="Calories burned" />
+            <select id="workoutType"><option>Walking</option><option>Lower Body</option><option>Core</option><option>Rehab</option><option>Other</option></select>
+          </div>
+          <div class="helper-row">
+            <button class="secondary" id="estimateWorkoutBtn">Estimate walking</button>
+            <button id="addWorkoutBtn">Add Movement</button>
+          </div>
+        </article>
+        <article class="card compact"><h3>Today’s Entries</h3><div id="entryList" class="entry-list"></div></article>
+      </section>
+
+      <section class="screen" id="trainScreen">
+        <div class="screen-head"><h2>Safe Training</h2><p>Your elbow filter is ON: no gripping, no all-fours, no elbow loading.</p></div>
+        <div id="workoutCards" class="workout-list"></div>
+      </section>
+
+      <section class="screen" id="progressScreen">
+        <div class="screen-head"><h2>Progress</h2><p>Track weight, waist, elbow trend, food and movement consistency.</p></div>
+        <article class="card compact">
+          <h3>Today’s Summary</h3>
+          <div class="summary-grid">
+            <div><small>Food</small><strong id="sumFood">0</strong></div>
+            <div><small>Movement</small><strong id="sumMove">0</strong></div>
+            <div><small>Ideal Intake</small><strong id="sumIdeal">0</strong></div>
+            <div><small>Elbow</small><strong id="sumPain">Green</strong></div>
+          </div>
+        </article>
+        <article class="card compact">
+          <h3>Body Check-in</h3>
+          <div class="form-grid two">
+            <input id="weightInput" type="number" step="0.1" placeholder="Weight today" />
+            <input id="waistInput" type="number" step="0.1" placeholder="Waist today" />
+          </div>
+          <button id="saveBodyBtn">Save Body Check-in</button>
+          <div id="bodyHistory" class="entry-list"></div>
+        </article>
+      </section>
+
+      <section class="screen" id="libraryScreen">
+        <div class="screen-head"><h2>Library</h2><p>Rules, safe exercise notes, and common calorie estimates.</p></div>
+        <article class="card compact"><h3>Avoid For Now</h3><ul class="clean-list"><li>Pushups, planks, all-fours, downward dog</li><li>Dumbbells, kettlebells, bands held in the hands</li><li>Rows, carries, dead hangs, heavy bags</li><li>Any movement causing immediate elbow pain</li></ul></article>
+        <article class="card compact"><h3>Common Food Estimates</h3><div id="foodLibrary" class="library-grid"></div></article>
+        <article class="card compact"><h3>Green / Yellow / Red Rules</h3><ul class="clean-list"><li><b>Green:</b> train safely and progress slowly.</li><li><b>Yellow:</b> maintain, walk, mobility only if elbow is irritated.</li><li><b>Red:</b> recovery day. Do not chase calories with pain.</li><li><b>Nerve symptoms:</b> avoid loading and consider medical assessment.</li></ul></article>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Main navigation">
+      <button class="active" data-tab="today">🏠<span>Today</span></button>
+      <button data-tab="log">📋<span>Log</span></button>
+      <button data-tab="train">🏋️<span>Train</span></button>
+      <button data-tab="progress">📊<span>Progress</span></button>
+      <button data-tab="library">📚<span>Library</span></button>
+    </nav>
+  </div>
+
+  <dialog id="goalModal" class="modal">
+    <form method="dialog" class="modal-card">
+      <h2>Adjust Goal</h2>
+      <label>Estimated maintenance calories<input id="maintenanceInput" type="number" min="1000"></label>
+      <label>Target loss per week<select id="lossInput"><option value="0.5">0.5 lb / week</option><option value="1">1 lb / week</option><option value="1.5">1.5 lb / week</option><option value="2">2 lb / week</option></select></label>
+      <label>Planned workout calories per day<input id="plannedMoveInput" type="number" min="0"></label>
+      <p class="hint">Ideal Intake = Maintenance + planned workout calories − target daily deficit.</p>
+      <div class="modal-actions"><button value="cancel" class="secondary">Cancel</button><button id="saveGoalBtn" value="default">Save</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="elbowInfo" class="modal"><form method="dialog" class="modal-card"><h2>Why this matters</h2><p>Your elbows are the safety filter. If pain rises or you feel numbness/tingling, the app removes strengthening and keeps only safer movement.</p><button>Got it</button></form></dialog>
+  <dialog id="budgetInfo" class="modal"><form method="dialog" class="modal-card"><h2>How the budget works</h2><p>Your ideal intake is based on your chosen weight-loss goal and a planned movement target. The live counter shows food left, movement left, and whether you are over or on track.</p><button>Got it</button></form></dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
