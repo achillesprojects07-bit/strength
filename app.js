@@ -1,6 +1,7 @@
-const STORAGE_KEY = 'calmStrength.v16';
+const APP_VERSION = '2.0';
+const STORAGE_KEY = 'ctaApp.v20';
 const todayKey = () => new Date().toISOString().slice(0,10);
-const old = JSON.parse(localStorage.getItem('calmStrength.v15') || localStorage.getItem('calmStrength.v14') || localStorage.getItem('calmStrength.v12') || localStorage.getItem('calmStrength.v11') || localStorage.getItem('calmStrength.v1') || '{}');
+const old = JSON.parse(localStorage.getItem('ctaApp.v19') || localStorage.getItem('ctaApp.v17') || localStorage.getItem('calmStrength.v16') || localStorage.getItem('calmStrength.v15') || localStorage.getItem('calmStrength.v14') || localStorage.getItem('calmStrength.v12') || localStorage.getItem('calmStrength.v11') || localStorage.getItem('calmStrength.v1') || '{}');
 let app = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || {
   profile: old.profile || {name:'Aileen', sex:'female', age:0, weightUnit:'lb', weight:0, heightUnit:'cm', heightCm:0, heightFt:0, heightIn:0, activity:1.2, lossPerWeek:1.5, plannedMove:500, maintenance:2100, configured:false, startDate: todayKey()},
   days: old.days || {},
@@ -16,7 +17,7 @@ function weightKg(){ const p=app.profile; return p.weightUnit==='kg' ? Number(p.
 function calculateMaintenance(){ const p=app.profile; const w=weightKg(), h=heightCm(), age=Number(p.age)||0; if(!w||!h||!age) return Number(p.maintenance)||2100; const bmr = p.sex==='male' ? 10*w + 6.25*h - 5*age + 5 : 10*w + 6.25*h - 5*age - 161; return Math.round(bmr * (Number(p.activity)||1.2)); }
 function targetDeficit(){ return Math.round((Number(app.profile.lossPerWeek)||1.5) * 3500 / 7); }
 function idealIntake(){ return Math.max(900, Math.round((Number(app.profile.maintenance)||calculateMaintenance()) + (Number(app.profile.plannedMove)||500) - targetDeficit())); }
-function safetyRating(ideal=idealIntake()){ if(ideal < 1200) return ['Very aggressive','Your food budget is low. Reduce loss target or planned movement.']; if(ideal < 1400) return ['Aggressive','Possible for some people, but monitor hunger and energy.']; if(targetDeficit() >= 1000) return ['Aggressive','2 lb/week requires a large daily deficit.']; return ['Sustainable','Reasonable starting target if energy and pain stay stable.']; }
+function safetyRating(ideal=idealIntake()){ const loss=Number(app.profile.lossPerWeek)||1.5; const deficit=targetDeficit(); if(loss>3 || ideal < 1000) return ['Extreme / not recommended','This target can create an unsafe or unrealistic daily deficit. Use only as a visibility calculator, not a prescription.']; if(loss>2 || ideal < 1200) return ['Very aggressive','Above 2 lb/week is aggressive. Protect your elbows; do not compensate with painful exercise.']; if(ideal < 1400 || deficit >= 1000) return ['Aggressive','Monitor hunger, energy, sleep, and elbow pain.']; return ['Sustainable','Reasonable starting target if energy and pain stay stable.']; }
 function formatDate(){ const now=new Date(); document.getElementById('dateText').textContent = now.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); document.getElementById('dayText').textContent = now.toLocaleDateString(undefined,{weekday:'long'}); document.getElementById('greeting').textContent = `Good morning, ${app.profile.name || 'Aileen'} 👋`; }
 
 const foodDb = {
@@ -87,7 +88,89 @@ const exercises = [
   {id:'hand-open', cat:'Rehab', title:'Gentle Hand Opening', mins:3, cals:3, safe:['green','yellow','red','nerve'], level:1, setup:'Open fingers, relax. No squeezing.', prescription:'1–2 sets x 10 reps.', stop:'No gripping.'},
   {id:'wrist-iso', cat:'Rehab', title:'Wrist Flexion Isometric', mins:5, cals:5, safe:['green'], level:2, setup:'10–20% effort against other hand.', prescription:'5 holds x 5–10 sec.', stop:'Pain must stay 0–2/10.'},
   {id:'pronation-iso', cat:'Rehab', title:'Pronation Isometric', mins:5, cals:5, safe:['green'], level:2, setup:'Elbow at side. Other hand blocks gently.', prescription:'5 holds x 5–10 sec.', stop:'No sharp pain.'},
-  {id:'finger-iso', cat:'Rehab', title:'Finger Flexor Isometric', mins:4, cals:3, safe:['green'], level:2, setup:'No fist. Gentle finger press only.', prescription:'5 holds x 5 sec.', stop:'No gripping pain.'}
+  {id:'finger-iso', cat:'Rehab', title:'Finger Flexor Isometric', mins:4, cals:3, safe:['green'], level:2, setup:'No fist. Gentle finger press only.', prescription:'5 holds x 5 sec.', stop:'No gripping pain.'},
+  
+  // Wall Pilates — elbow-safe, no all-fours, no wrist weight-bearing
+  {id:'wall-pilates-roll', cat:'Wall Pilates', title:'Wall Roll-Down Prep', mins:6, cals:20, safe:['green','yellow'], level:1, setup:'Back near wall, arms relaxed by sides. Slowly nod chin and roll upper spine only as comfortable.', prescription:'2 sets x 5 slow reps.', stop:'Stop if neck, back, or elbow tension increases.'},
+  {id:'wall-pilates-bridge', cat:'Wall Pilates', title:'Wall-Foot Glute Bridge', mins:9, cals:45, safe:['green','yellow'], level:2, setup:'Lie on back, feet on wall, arms relaxed. Press through feet, not arms.', prescription:'3 sets x 8–12 reps.', stop:'Do not press hard through elbows or hands.'},
+  {id:'wall-pilates-march', cat:'Wall Pilates', title:'Wall-Foot Bridge March', mins:10, cals:55, safe:['green'], level:3, setup:'Feet on wall, bridge position, tiny alternating foot lifts. Arms relaxed.', prescription:'2 sets x 8 total marches.', stop:'Stop if pelvis rocks or arms press down.'},
+  {id:'wall-pilates-squat', cat:'Wall Pilates', title:'Wall Pilates Squat + Heel Lift', mins:10, cals:65, safe:['green'], level:2, setup:'Back on wall, shallow squat, lift heels gently one or both at a time.', prescription:'3 rounds: 8 squats + 8 heel lifts.', stop:'Skip heel lifts if calves cramp or knees hurt.'},
+  {id:'wall-pilates-abduction', cat:'Wall Pilates', title:'Wall Standing Leg Sweep', mins:8, cals:45, safe:['green','yellow'], level:1, setup:'Light fingertip wall touch only, no gripping. Sweep leg side/back in small range.', prescription:'2 sets x 8 each direction per leg.', stop:'Stop if balance requires gripping.'},
+  {id:'wall-pilates-calf', cat:'Wall Pilates', title:'Wall Calf Raise Flow', mins:7, cals:40, safe:['green','yellow'], level:1, setup:'Fingertips on wall only. Rise slowly, lower slowly.', prescription:'3 sets x 12–18 reps.', stop:'No gripping or leaning into hands.'},
+  {id:'wall-pilates-posture', cat:'Wall Pilates', title:'Wall Posture + Breath', mins:6, cals:10, safe:['green','yellow','red','nerve'], level:1, setup:'Back to wall if comfortable. Arms relaxed. Slow ribs-down breathing.', prescription:'5 breaths x 4 rounds.', stop:'Skip if wall position causes tingling.'},
+
+
+  // Expanded Wall Pilates library — beginner, intermediate, advanced. Arm-weight-bearing versions are excluded/locked because of elbow pain.
+  {id:'wp-breath-rib', cat:'Wall Pilates', title:'Beginner: Wall Rib Breathing', mins:5, cals:8, safe:['green','yellow','red','nerve'], level:1, setup:'Back near wall or seated with back supported. Hands relaxed in lap.', prescription:'6 slow breaths x 3 rounds. Exhale and gently draw ribs down.', stop:'Stop if tingling, dizziness, or neck tension appears.'},
+  {id:'wp-neutral-spine', cat:'Wall Pilates', title:'Beginner: Wall Neutral Spine Check', mins:5, cals:8, safe:['green','yellow','red','nerve'], level:1, setup:'Stand with head, upper back, and hips near wall. Feet slightly forward. Arms relaxed.', prescription:'Hold 20–30 sec x 4. Find tall posture without forcing low back flat.', stop:'Skip if wall position increases elbow or nerve symptoms.'},
+  {id:'wp-chin-nod', cat:'Wall Pilates', title:'Beginner: Wall Chin Nod', mins:5, cals:8, safe:['green','yellow','red','nerve'], level:1, setup:'Back to wall or seated. Keep shoulders soft.', prescription:'2 sets x 8 gentle chin nods. Move small and slow.', stop:'Stop if it causes headache, dizziness, or arm symptoms.'},
+  {id:'wp-shoulder-blade-set', cat:'Wall Pilates', title:'Beginner: Wall Scapular Set', mins:5, cals:10, safe:['green','yellow','red'], level:1, setup:'Back near wall, arms relaxed by sides, no pressing elbows into wall.', prescription:'2–3 sets x 8. Gently draw shoulder blades back/down, hold 2 sec.', stop:'Stop if inner elbow pulls or tingles.'},
+  {id:'wp-arm-float-low', cat:'Wall Pilates', title:'Beginner: Low Wall Arm Float', mins:6, cals:12, safe:['green','yellow'], level:1, setup:'Back to wall. Lift arms only to pain-free height, thumbs up. No wall pressure through arms.', prescription:'2 sets x 6 slow lifts to chest height only.', stop:'Skip if any elbow pain, forearm pull, or tingling.'},
+  {id:'wp-wall-angels-mod', cat:'Wall Pilates', title:'Beginner: Modified Wall Angels', mins:7, cals:15, safe:['green'], level:2, setup:'Back to wall, elbows bent only if pain-free. Keep range small.', prescription:'2 sets x 5–8 slow reps. Stop before elbow strain.', stop:'Do not force arms overhead. Skip on Yellow/Red elbow days.'},
+  {id:'wp-roll-down-full', cat:'Wall Pilates', title:'Beginner: Wall Roll-Down', mins:7, cals:20, safe:['green','yellow'], level:1, setup:'Back to wall, feet forward. Arms hang relaxed, no gripping.', prescription:'2–3 sets x 4–6 slow roll-downs, only as far as comfortable.', stop:'Stop if back pain, dizziness, or hamstring nerve pull.'},
+  {id:'wp-roll-down-half', cat:'Wall Pilates', title:'Beginner: Half Wall Roll-Down', mins:5, cals:15, safe:['green','yellow','red'], level:1, setup:'Only nod head and round upper back slightly. Arms relaxed.', prescription:'2 sets x 5. This is the red-day version of roll-down.', stop:'Stop if symptoms travel down arm or leg.'},
+  {id:'wp-wall-sit-short', cat:'Wall Pilates', title:'Beginner: Short Wall Sit', mins:7, cals:35, safe:['green','yellow'], level:1, setup:'Back to wall, shallow knee bend. Knees over ankles. Arms relaxed.', prescription:'4 holds x 10–20 sec. Stay higher than a full squat.', stop:'Stop if knee pain or you brace with hands.'},
+  {id:'wp-wall-sit-breath', cat:'Wall Pilates', title:'Beginner: Wall Sit + Breath', mins:8, cals:40, safe:['green','yellow'], level:1, setup:'Shallow wall sit, ribs stacked, hands relaxed.', prescription:'3 holds x 3 slow breaths. Stand between holds.', stop:'No breath-holding, no knee pain.'},
+  {id:'wp-wall-squat-reps', cat:'Wall Pilates', title:'Beginner: Wall Squat Reps', mins:8, cals:50, safe:['green','yellow'], level:1, setup:'Back slides on wall. Small range first.', prescription:'2–3 sets x 8–10 reps.', stop:'Stop if knees collapse inward or elbows tense.'},
+  {id:'wp-wall-calf-slow', cat:'Wall Pilates', title:'Beginner: Slow Wall Calf Raises', mins:7, cals:40, safe:['green','yellow'], level:1, setup:'Fingertips touch wall for balance only. No gripping.', prescription:'3 sets x 10–15. 2 sec up, 2 sec down.', stop:'Stop if you lean weight through hands.'},
+  {id:'wp-wall-toe-raises', cat:'Wall Pilates', title:'Beginner: Wall Toe Raises', mins:6, cals:30, safe:['green','yellow'], level:1, setup:'Back to wall or fingertips on wall. Lift toes while heels stay down.', prescription:'2–3 sets x 12–15 reps.', stop:'Stop if shins cramp sharply.'},
+  {id:'wp-standing-march-wall', cat:'Wall Pilates', title:'Beginner: Wall-Supported March', mins:8, cals:50, safe:['green','yellow'], level:1, setup:'Stand tall, fingertips to wall if needed. No grip.', prescription:'3 rounds x 30–45 sec slow marches.', stop:'Stop if balance requires gripping.'},
+  {id:'wp-standing-knee-lift', cat:'Wall Pilates', title:'Beginner: Wall Knee Lift Hold', mins:7, cals:35, safe:['green','yellow'], level:1, setup:'Light wall touch. Lift one knee to comfortable height.', prescription:'2 sets x 6 each side, 3-sec hold.', stop:'Stop if hip pinches or you grip the wall.'},
+  {id:'wp-side-leg-sweep', cat:'Wall Pilates', title:'Beginner: Wall Side Leg Sweep', mins:8, cals:45, safe:['green','yellow'], level:1, setup:'One side near wall, fingertips light. Sweep leg side to center.', prescription:'2–3 sets x 8–12 each side.', stop:'Keep pelvis steady; no leaning into hand.'},
+  {id:'wp-back-leg-sweep', cat:'Wall Pilates', title:'Beginner: Wall Back Leg Sweep', mins:8, cals:45, safe:['green','yellow'], level:1, setup:'Face wall with fingertips light. Extend leg back small range.', prescription:'2–3 sets x 8–12 each side.', stop:'Stop if low back arches or hands press hard.'},
+  {id:'wp-front-leg-sweep', cat:'Wall Pilates', title:'Beginner: Wall Front Leg Sweep', mins:8, cals:40, safe:['green','yellow'], level:1, setup:'Side to wall, stand tall. Sweep straight leg forward small range.', prescription:'2 sets x 8–10 each side.', stop:'Keep movement small if hip flexors grip.'},
+  {id:'wp-leg-circles-small', cat:'Wall Pilates', title:'Beginner: Small Standing Leg Circles', mins:8, cals:45, safe:['green'], level:2, setup:'Light wall touch. One leg slightly lifted.', prescription:'2 sets x 6 circles each direction per leg.', stop:'Stop if balance requires gripping or pelvis twists.'},
+  {id:'wp-wall-side-bend', cat:'Wall Pilates', title:'Beginner: Wall Side Bend', mins:6, cals:20, safe:['green','yellow'], level:1, setup:'Stand side-on near wall, arms relaxed or one hand across chest.', prescription:'2 sets x 6 gentle bends each side.', stop:'Do not reach overhead if elbows complain.'},
+  {id:'wp-standing-wall-hamstring-hinge', cat:'Wall Pilates', title:'Beginner: Wall Hip Hinge', mins:8, cals:35, safe:['green','yellow'], level:2, setup:'Stand facing away from wall, hips move back toward wall. Arms relaxed.', prescription:'2 sets x 8–10 reps.', stop:'Stop if back rounds or hamstring nerve pull.'},
+  {id:'wp-wall-balance-tandem', cat:'Wall Pilates', title:'Beginner: Wall Tandem Balance', mins:6, cals:20, safe:['green','yellow'], level:1, setup:'Stand heel-to-toe beside wall. Fingertips hover or touch lightly.', prescription:'3 holds x 15–30 sec each side.', stop:'Do not grip wall. Step out if balance fails.'},
+  {id:'wp-feet-wall-pelvic-tilt', cat:'Wall Pilates', title:'Beginner: Feet-on-Wall Pelvic Tilt', mins:7, cals:25, safe:['green','yellow','red'], level:1, setup:'Lie on back, feet on wall, knees bent. Arms relaxed, palms up.', prescription:'2–3 sets x 8–12 slow tilts.', stop:'Do not press elbows or hands down.'},
+  {id:'wp-feet-wall-bridge-hold', cat:'Wall Pilates', title:'Beginner: Feet-on-Wall Bridge Hold', mins:8, cals:40, safe:['green','yellow'], level:1, setup:'Feet on wall, lift hips small range. Arms relaxed.', prescription:'3 holds x 10–20 sec.', stop:'Stop if hamstrings cramp or arms press down.'},
+  {id:'wp-feet-wall-bridge-reps', cat:'Wall Pilates', title:'Beginner: Feet-on-Wall Bridge Reps', mins:9, cals:45, safe:['green','yellow'], level:2, setup:'Feet on wall, knees bent. Press through feet.', prescription:'3 sets x 8–12 reps.', stop:'Keep ribs down; no low-back pinching.'},
+  {id:'wp-wall-dead-bug-feet', cat:'Wall Pilates', title:'Beginner: Wall Dead Bug Feet Press', mins:8, cals:35, safe:['green','yellow'], level:2, setup:'Lie on back, feet on wall, knees 90°. Arms relaxed.', prescription:'2–3 sets x 6 slow alternating heel lifts.', stop:'Keep low back comfortable; no arm pressing.'},
+  {id:'wp-wall-tabletop-hold', cat:'Wall Pilates', title:'Intermediate: Feet-on-Wall Tabletop Hold', mins:8, cals:35, safe:['green','yellow'], level:2, setup:'Back on mat, feet on wall, ribs down.', prescription:'4 holds x 15–25 sec.', stop:'Stop if low back lifts or breath holds.'},
+  {id:'wp-side-lying-wall-leg-lift', cat:'Wall Pilates', title:'Beginner: Side-Lying Wall Leg Lift', mins:9, cals:45, safe:['green','yellow'], level:2, setup:'Lie on side, head supported by pillow not elbow. Top foot near wall.', prescription:'2–3 sets x 8–12 each side.', stop:'Do not prop on elbow. Keep range controlled.'},
+  {id:'wp-side-lying-clam-wall', cat:'Wall Pilates', title:'Beginner: Wall Clam', mins:8, cals:40, safe:['green','yellow'], level:2, setup:'Side-lying, knees bent, head supported. Feet may touch wall for alignment.', prescription:'2 sets x 10–12 each side.', stop:'No elbow propping; stop if hip cramps.'},
+  {id:'wp-wall-hamstring-stretch', cat:'Wall Pilates', title:'Recovery: Wall Hamstring Stretch', mins:6, cals:10, safe:['green','yellow','red','nerve'], level:1, setup:'On back near wall, one leg up wall if comfortable, knee soft.', prescription:'Hold 20–30 sec x 2 each side.', stop:'Stop if nerve pain shoots down leg.'},
+  {id:'wp-legs-up-wall', cat:'Wall Pilates', title:'Recovery: Legs Up the Wall', mins:8, cals:8, safe:['green','yellow','red','nerve'], level:1, setup:'Lie on back with legs resting on wall. Arms comfortable, elbows relaxed.', prescription:'2–8 min relaxed breathing.', stop:'Come out if tingling, dizziness, or back discomfort.'},
+  {id:'wp-wall-figure-four', cat:'Wall Pilates', title:'Recovery: Wall Figure-4 Stretch', mins:8, cals:12, safe:['green','yellow','red'], level:1, setup:'On back, one ankle across opposite thigh, foot on wall.', prescription:'Hold 20–30 sec x 2 each side.', stop:'No knee pain or sciatic pull.'},
+  {id:'wp-wall-butterfly', cat:'Wall Pilates', title:'Recovery: Wall Butterfly', mins:6, cals:8, safe:['green','yellow','red'], level:1, setup:'Legs up wall, soles together, knees open gently.', prescription:'Hold 30–60 sec x 2.', stop:'Support knees if groin feels strained.'},
+  {id:'wp-wall-straddle', cat:'Wall Pilates', title:'Recovery: Wall Straddle', mins:7, cals:10, safe:['green','yellow'], level:2, setup:'Legs up wall, open legs gently to a V. Keep back relaxed.', prescription:'Hold 30–60 sec x 2.', stop:'No aggressive stretching.'},
+  {id:'wp-wall-active-frog', cat:'Wall Pilates', title:'Recovery: Wall Active Frog', mins:8, cals:20, safe:['green','yellow'], level:2, setup:'Feet on wall, knees bent and open, slowly slide feet a little.', prescription:'2 sets x 6–8 slow reps.', stop:'Stop if hip/groin pinches.'},
+  {id:'wp-wall-glute-stretch-press', cat:'Wall Pilates', title:'Recovery: Wall Glute Press Stretch', mins:7, cals:12, safe:['green','yellow','red'], level:1, setup:'On back, figure-4 position, gently press foot into wall.', prescription:'3 gentle presses x 5 sec each side, then hold 20 sec.', stop:'No knee twisting.'},
+  {id:'wp-standing-oblique-crunch', cat:'Wall Pilates', title:'Intermediate: Wall Oblique Knee Lift', mins:9, cals:60, safe:['green'], level:3, setup:'Side to wall, fingertips light. Bring knee slightly toward same-side ribs.', prescription:'3 sets x 8–10 each side.', stop:'No pulling with arms or twisting into pain.'},
+  {id:'wp-wall-lunge-static', cat:'Wall Pilates', title:'Intermediate: Wall Static Lunge', mins:10, cals:70, safe:['green'], level:3, setup:'Side to wall for fingertip balance. Split stance, shallow bend.', prescription:'2–3 sets x 6–8 each leg.', stop:'Stop if knee pain or hand gripping appears.'},
+  {id:'wp-wall-split-squat', cat:'Wall Pilates', title:'Intermediate: Wall-Assisted Split Squat', mins:12, cals:85, safe:['green'], level:4, setup:'Fingertips to wall only. Keep torso tall and range shallow.', prescription:'2–3 sets x 6–10 each side.', stop:'No gripping; no knee collapse.'},
+  {id:'wp-wall-side-lunge', cat:'Wall Pilates', title:'Intermediate: Wall Side Lunge', mins:10, cals:80, safe:['green'], level:3, setup:'Face wall with fingertips light. Step side and bend one knee.', prescription:'2 sets x 6–8 each side.', stop:'Skip if groin, knee, or balance feels unsafe.'},
+  {id:'wp-wall-squat-pulse', cat:'Wall Pilates', title:'Intermediate: Wall Squat Pulses', mins:9, cals:60, safe:['green'], level:3, setup:'Shallow wall squat. Tiny pulses only.', prescription:'3 rounds x 15–25 pulses.', stop:'Stop if knees ache or breath-holding starts.'},
+  {id:'wp-wall-squat-heel-lift-alt', cat:'Wall Pilates', title:'Intermediate: Wall Squat Alternate Heel Lifts', mins:10, cals:70, safe:['green'], level:3, setup:'Shallow wall squat, lift one heel at a time.', prescription:'3 rounds x 8–12 alternating heel lifts.', stop:'Skip if calves cramp or knees hurt.'},
+  {id:'wp-wall-sit-adductor', cat:'Wall Pilates', title:'Intermediate: Wall Sit Pillow Squeeze', mins:9, cals:55, safe:['green'], level:3, setup:'Place pillow between knees. Shallow wall sit.', prescription:'4 holds x 15–25 sec with gentle squeeze.', stop:'Do not strain inner thighs or hold breath.'},
+  {id:'wp-feet-wall-bridge-pulse', cat:'Wall Pilates', title:'Intermediate: Feet-on-Wall Bridge Pulses', mins:9, cals:55, safe:['green'], level:3, setup:'Small bridge lift, pulse hips 1–2 inches.', prescription:'3 rounds x 15–20 pulses.', stop:'Stop if hamstrings dominate or back arches.'},
+  {id:'wp-feet-wall-bridge-march2', cat:'Wall Pilates', title:'Intermediate: Feet-on-Wall Bridge March', mins:10, cals:60, safe:['green'], level:3, setup:'Bridge with both feet on wall. Lift one heel/foot tiny amount.', prescription:'2–3 sets x 6–10 total marches.', stop:'Stop if pelvis rocks or arms push down.'},
+  {id:'wp-wall-hamstring-press', cat:'Wall Pilates', title:'Intermediate: Wall Hamstring Press Isometric', mins:8, cals:40, safe:['green','yellow'], level:3, setup:'On back, one or both heels press gently into wall without lifting hips high.', prescription:'5 holds x 8–12 sec.', stop:'Gentle only. Stop if cramps or back pain.'},
+  {id:'wp-wall-toe-taps', cat:'Wall Pilates', title:'Intermediate: Wall Toe Taps', mins:9, cals:45, safe:['green'], level:3, setup:'Lie on back with knees bent and feet lightly touching wall.', prescription:'2–3 sets x 8–10 alternating toe taps.', stop:'Stop if low back arches or hip flexors grip.'},
+  {id:'wp-wall-100-legs', cat:'Wall Pilates', title:'Intermediate: Wall Hundred Legs-Only Prep', mins:8, cals:45, safe:['green'], level:3, setup:'On back, feet on wall or legs tabletop. Arms rest, no pumping.', prescription:'5 rounds x 10 breaths with steady core.', stop:'No neck strain. Do not pump arms with elbow pain.'},
+  {id:'wp-wall-ab-curl-micro', cat:'Wall Pilates', title:'Intermediate: Micro Ab Curl, Feet on Wall', mins:8, cals:40, safe:['green'], level:3, setup:'Feet on wall, hands across chest or supporting head only if elbows tolerate.', prescription:'2 sets x 6–8 tiny curls.', stop:'Skip if neck or elbow discomfort appears.'},
+  {id:'wp-side-lying-wall-kick', cat:'Wall Pilates', title:'Intermediate: Side-Lying Wall Front/Back Kick', mins:10, cals:55, safe:['green'], level:3, setup:'Side-lying, head on pillow, top foot glides lightly along wall.', prescription:'2 sets x 8 front/back each side.', stop:'Stop if pelvis rolls or hip pinches.'},
+  {id:'wp-side-lying-hydrant-wall', cat:'Wall Pilates', title:'Intermediate: Side-Lying Wall Hydrant', mins:10, cals:55, safe:['green'], level:3, setup:'Side-lying, knees bent, feet near wall. Head supported, no elbow prop.', prescription:'2–3 sets x 8–12 each side.', stop:'Keep heels light and pelvis steady.'},
+  {id:'wp-prone-wall-back-extension', cat:'Wall Pilates', title:'Intermediate: Wall Back Extension Prep', mins:8, cals:30, safe:['green'], level:3, setup:'Lie on stomach with feet lightly against wall, forehead on towel, arms by sides.', prescription:'2 sets x 6 tiny chest floats, glutes gentle.', stop:'Skip if low back pain or elbow/neck tension.'},
+  {id:'wp-prone-leg-press-wall', cat:'Wall Pilates', title:'Intermediate: Prone Wall Leg Press', mins:8, cals:35, safe:['green'], level:3, setup:'Lie face down, soles of feet lightly press wall, arms relaxed.', prescription:'5 holds x 8 sec gentle press.', stop:'No low-back compression.'},
+  {id:'wp-standing-wall-good-morning', cat:'Wall Pilates', title:'Intermediate: Wall Good-Morning Prep', mins:9, cals:45, safe:['green'], level:3, setup:'Hands across chest, hips hinge back to touch wall lightly.', prescription:'3 sets x 8–10 slow reps.', stop:'No hand loading. Stop if back discomfort.'},
+  {id:'wp-wall-single-leg-balance', cat:'Wall Pilates', title:'Intermediate: Wall Single-Leg Balance', mins:7, cals:30, safe:['green'], level:3, setup:'Stand beside wall, fingertips light. Lift one foot slightly.', prescription:'3 holds x 10–25 sec each side.', stop:'No gripping or knee locking.'},
+  {id:'wp-wall-sit-march', cat:'Wall Pilates', title:'Advanced: Wall Sit March', mins:10, cals:80, safe:['green'], level:5, setup:'Very shallow wall sit. Lift one heel or foot slightly, alternating.', prescription:'3 rounds x 8–12 total marches.', stop:'Stop if back slides, knees hurt, or effort becomes breathless.'},
+  {id:'wp-single-leg-wall-squat', cat:'Wall Pilates', title:'Advanced: Assisted Single-Leg Wall Squat Prep', mins:10, cals:75, safe:['green'], level:5, setup:'Back to wall, one heel light. Very shallow range.', prescription:'2 sets x 4–6 each side. Tiny range only.', stop:'Skip if knee, hip, or balance feels unstable.'},
+  {id:'wp-single-leg-bridge-wall', cat:'Wall Pilates', title:'Advanced: Single-Leg Wall Bridge', mins:10, cals:70, safe:['green'], level:5, setup:'One foot on wall, other leg bent toward chest or extended if controlled.', prescription:'2 sets x 5–8 each side.', stop:'No back pinch, hamstring cramp, or arm bracing.'},
+  {id:'wp-single-leg-bridge-pulse', cat:'Wall Pilates', title:'Advanced: Single-Leg Wall Bridge Pulses', mins:10, cals:75, safe:['green'], level:5, setup:'Small range single-leg bridge, only if normal bridge is easy.', prescription:'2 sets x 8–12 tiny pulses each side.', stop:'Stop if pelvis drops or cramping starts.'},
+  {id:'wp-side-lying-leg-circles-wall', cat:'Wall Pilates', title:'Advanced: Side-Lying Wall Leg Circles', mins:10, cals:60, safe:['green'], level:5, setup:'Side-lying, top leg long near wall. Small circles.', prescription:'2 sets x 6 circles each direction per side.', stop:'Stop if pelvis rocks or low back works.'},
+  {id:'wp-wall-balance-reach', cat:'Wall Pilates', title:'Advanced: Wall Balance Toe Reach', mins:10, cals:60, safe:['green'], level:5, setup:'Light fingertip wall touch. Standing leg soft, reach free foot forward/side/back.', prescription:'2 rounds x 3 directions each leg.', stop:'Stop if ankle, knee, or balance feels unsafe.'},
+
+  // Chair exercises — travel-friendly and red/yellow-day friendly
+  {id:'chair-march', cat:'Chair', title:'Chair March Intervals', mins:12, cals:55, safe:['green','yellow','red','nerve'], level:1, setup:'Sit tall. Hands open on thighs. March legs without gripping chair.', prescription:'45 sec march + 30 sec easy x 8.', stop:'Keep gentle on Red/Nerve days.'},
+  {id:'chair-tap-combo', cat:'Chair', title:'Chair Toe-Heel Tap Combo', mins:10, cals:40, safe:['green','yellow','red','nerve'], level:1, setup:'Seated. Alternate toe taps, heel taps, and out-in taps.', prescription:'3 rounds x 60 sec.', stop:'Stop if hip flexors cramp.'},
+  {id:'chair-sit-stand', cat:'Chair', title:'Chair Sit-to-Stand Flow', mins:10, cals:65, safe:['green','yellow'], level:1, setup:'Stand up from chair without pushing hands. Sit slowly.', prescription:'3 sets x 8–10 reps.', stop:'Stop if you need hands to push.'},
+  {id:'chair-leg-ext-flow', cat:'Chair', title:'Chair Leg Extension Flow', mins:8, cals:35, safe:['green','yellow','red'], level:1, setup:'Sit tall. Extend one knee, lower slowly.', prescription:'2–3 sets x 10 each leg.', stop:'No knee pain.'},
+  {id:'chair-core-lean', cat:'Chair', title:'Chair Core Lean-Back', mins:8, cals:35, safe:['green','yellow'], level:2, setup:'Sit tall near chair front, lean back a few inches with neutral spine. Hands relaxed.', prescription:'3 sets x 6–8 slow reps.', stop:'Do not grip chair or strain back.'},
+  {id:'chair-side-step', cat:'Chair', title:'Seated Side-Step Cardio', mins:12, cals:60, safe:['green','yellow','red'], level:1, setup:'Sit tall, step one foot to side then back, alternate.', prescription:'45 sec work + 30 sec easy x 8.', stop:'Keep smooth and pain-free.'},
+  {id:'chair-posture-reset', cat:'Chair', title:'Chair Posture Reset', mins:5, cals:5, safe:['green','yellow','red','nerve'], level:1, setup:'Sit tall, shoulder blades soft, chin gently tucked.', prescription:'5 breaths + 8 chin tucks + 8 shoulder rolls.', stop:'Stop if tingling increases.'}
 ];
 
 const weeklyPattern = ['Strength Base','Walking Intervals','Core + Posture','Lower Body Variety','Steady Walk','Conditioning Circuit','Recovery'];
@@ -103,22 +186,68 @@ function dayIndex(){ return new Date().getDay(); }
 function painRules(){ const p=day().pain; if(p==='green') return {mode:'Train', intensity:'moderate', allowProgress:true, title:'Green Day — Train safely', note:'You can do today’s generated workout. Progress only one variable.'}; if(p==='yellow') return {mode:'Maintain', intensity:'light', allowProgress:false, title:'Yellow Day — Maintain, don’t push', note:'Workout changed to walking, recovery core, and mobility. No progression today.'}; if(p==='red') return {mode:'Recovery', intensity:'gentle', allowProgress:false, title:'Red Day — Recovery only', note:'No strength or calorie chasing. Gentle movement and mobility only.'}; return {mode:'Nerve Safety', intensity:'gentle', allowProgress:false, title:'Nerve symptoms — Avoid loading', note:'Avoid elbow loading and consider medical assessment if numbness/tingling continues.'}; }
 function byId(id){ return exercises.find(e=>e.id===id); }
 function choose(cat, pain, levelMax, count, offset=0){ const pool = exercises.filter(e=>e.cat===cat && e.safe.includes(pain) && e.level<=levelMax); const out=[]; for(let i=0;i<count && pool.length;i++) out.push(pool[(i+offset)%pool.length]); return out; }
-function generateSession(variation=app.trainer.variation){ const p=day().pain; const rule=painRules(); const phase=phaseIndex(); const weekday=weeklyPattern[dayIndex()]; let levelMax = p==='green' ? Math.min(4, phase+1) : 1; let ex=[]; let title=weekday; let targetCals=Math.round((Number(app.profile.plannedMove)||500)*0.38);
-  if(p==='red' || p==='nerve') { title = p==='nerve' ? 'Nerve-Safe Recovery' : 'Red Day Recovery'; ex=[byId('chair-cardio'), byId('pelvic-tilt'), byId('chin-tuck'), byId('scap-set'), byId('elbow-rom'), byId('hand-open')]; targetCals=70; }
-  else if(p==='yellow') { title='Yellow Day Maintain'; ex=[...choose('Walking',p,1,1,variation), ...choose('Core',p,1,2,variation), ...choose('Posture',p,1,2,variation), ...choose('Rehab',p,1,2,variation)]; targetCals=120; }
-  else {
+function uniqueEx(list){ const seen=new Set(); return list.filter(e=>e && !seen.has(e.id) && seen.add(e.id)); }
+function safePick(cats, pain, levelMax, count, offset=0){
+  const catList=Array.isArray(cats)?cats:[cats];
+  const pool=exercises.filter(e=>catList.includes(e.cat) && e.safe.includes(pain) && e.level<=levelMax);
+  const out=[];
+  for(let i=0;i<count && pool.length;i++) out.push(pool[(i+offset)%pool.length]);
+  return out;
+}
+function generateSession(variation=app.trainer.variation){
+  const p=day().pain;
+  const rule=painRules();
+  const phase=phaseIndex();
+  const weekday=weeklyPattern[dayIndex()];
+  const levelMax = p==='green' ? Math.min(4, phase+1) : 1;
+  let title = weekday + ' Complete Routine';
+  let targetCals = Math.round((Number(app.profile.plannedMove)||500)*0.42);
+  let ex=[];
+
+  // Every generated day now includes the same professional structure:
+  // Cardio + Lower Body + Core + Posture + Rehab, with Wall Pilates and Chair variety rotated in.
+  if(p==='red' || p==='nerve'){
+    title = p==='nerve' ? 'Nerve-Safe Complete Recovery Routine' : 'Red Day Complete Recovery Routine';
+    ex = uniqueEx([
+      byId('chair-march'),                         // cardio
+      byId('chair-leg-ext-flow'),                  // lower body
+      byId('pelvic-tilt'),                         // core
+      byId('chair-posture-reset'),                 // posture
+      byId('elbow-rom'), byId('hand-open'),        // rehab
+      byId('wall-pilates-posture')                 // wall pilates gentle option
+    ]);
+    targetCals = 75;
+  } else if(p==='yellow'){
+    title = 'Yellow Day Complete Maintain Routine';
+    ex = uniqueEx([
+      ...safePick(['Walking','Conditioning','Chair'],p,1,1,variation),
+      ...safePick(['Lower Body','Chair','Wall Pilates'],p,1,2,variation+1),
+      ...safePick(['Core','Chair'],p,1,1,variation+2),
+      ...safePick(['Posture','Wall Pilates','Chair'],p,1,1,variation+3),
+      ...safePick('Rehab',p,1,2,variation+4)
+    ]);
+    targetCals = 130;
+  } else {
     const idx=dayIndex();
-    if(idx===1){ ex=[...choose('Lower Body',p,levelMax,5,variation), ...choose('Core',p,levelMax,1,variation), byId('scap-set')]; targetCals=180+phase*25; }
-    else if(idx===2){ ex=[...choose('Walking',p,Math.min(3,levelMax+1),1,variation+1), ...choose('Conditioning',p,levelMax,1,variation), byId('elbow-rom'), byId('wrist-rom')]; targetCals=220+phase*30; }
-    else if(idx===3){ ex=[...choose('Core',p,levelMax,3,variation), ...choose('Posture',p,1,2,variation), ...choose('Rehab',p,2,2,variation)]; targetCals=110+phase*15; }
-    else if(idx===4){ ex=[...choose('Lower Body',p,levelMax,4,variation+3), ...choose('Conditioning',p,levelMax,1,variation+1), byId('hand-open')]; targetCals=190+phase*25; }
-    else if(idx===5){ ex=[...choose('Walking',p,Math.min(3,levelMax+1),2,variation), ...choose('Posture',p,1,1,variation)]; targetCals=250+phase*35; }
-    else if(idx===6){ ex=[...choose('Conditioning',p,levelMax,3,variation), ...choose('Lower Body',p,levelMax,2,variation+2), byId('elbow-rom')]; targetCals=200+phase*35; }
-    else { title='Recovery + Mobility'; ex=[byId('walk-easy'), byId('pelvic-tilt'), byId('side-leg'), byId('chin-tuck'), byId('elbow-rom'), byId('forearm-rotate')]; targetCals=110; }
+    const cardioCats = idx===5 ? ['Walking'] : ['Walking','Conditioning','Chair'];
+    const lowerCats = idx===1 || idx===4 ? ['Lower Body','Wall Pilates','Chair'] : ['Wall Pilates','Lower Body','Chair'];
+    const coreCats = ['Core','Chair'];
+    const postureCats = ['Posture','Wall Pilates','Chair'];
+    const rehabLevel = phase>=1 ? 2 : 1;
+    ex = uniqueEx([
+      ...safePick(cardioCats,p,Math.min(3,levelMax+1),1,variation+idx),
+      ...safePick(lowerCats,p,levelMax,3,variation+idx+1),
+      ...safePick(coreCats,p,levelMax,2,variation+idx+2),
+      ...safePick(postureCats,p,1,1,variation+idx+3),
+      ...safePick('Rehab',p,rehabLevel,2,variation+idx+4)
+    ]);
+    if(idx===0) title='Recovery + Complete Mobility Routine';
+    targetCals=[120,210,230,150,220,260,240][idx] + phase*25;
   }
-  ex=ex.filter(Boolean);
-  const cals=Math.round(ex.reduce((a,e)=>a+(e.cals||0),0)); const mins=Math.round(ex.reduce((a,e)=>a+(e.mins||0),0));
-  return {title, rule, phase:phases[phase], week:weekNumber(), ex, cals: Math.max(cals,targetCals), mins, weekday}; }
+  const cals=Math.round(ex.reduce((a,e)=>a+(e.cals||0),0));
+  const mins=Math.round(ex.reduce((a,e)=>a+(e.mins||0),0));
+  return {title, rule, phase:phases[phase], week:weekNumber(), ex, cals: Math.max(cals,targetCals), mins, weekday};
+}
 function progressionCue(){ const phase=phaseIndex(); if(day().pain!=='green') return 'No progression today. Maintain or recover.'; return ['Add 1–2 reps only if no next-day flare.','Add one small set to one exercise only.','Use slower 3-second lowering or holds.','Use circuit flow or slightly shorter rest.'][phase]; }
 
 function updatePainUI(){ const p=day().pain; document.querySelectorAll('.pain-option').forEach(b=>b.classList.toggle('selected',b.dataset.pain===p)); const m={green:['🛡️','Green day detected','You can train safely today. The app will still avoid gripping and elbow loading.'],yellow:['⚠️','Yellow day detected','Maintain only. The app will avoid progression and choose light movement.'],red:['🛑','Red day detected','Recovery only. Do not chase calorie burn today.'],nerve:['⚡','Nerve symptoms selected','Avoid loading. Consider medical assessment if numbness or tingling persists.']}[p]; document.getElementById('painBanner').innerHTML=`<span>${m[0]}</span><p><strong>${m[1]}</strong> — ${m[2]}</p>`; }

@@ -1,4 +1,4 @@
-Calm Strength v1.2
+CTA — Conditioning Training App v2.0
 ==================
 A mobile-first web app for injury-aware weight loss and no-grip training.
 
@@ -26,3 +26,12 @@ V1.6 update:
 - Copy lookup text for any external calorie counter.
 - Enter the calories found, then Add Food or Save to My Foods.
 - This is a static GitHub Pages-safe approach and does not require API keys.
+
+
+Version 1.8 update: target loss per week selector now supports up to 5 lb/week with stronger safety warnings for targets above 2 lb/week.
+
+
+Version 2.0 update: daily coach-generated workouts now include a complete routine structure every day: cardio, lower body, core, posture, and rehab. Added Wall Pilates and Chair exercise categories for more long-term variety while preserving elbow-safe rules.
+
+
+Version 2.0 update: expanded Wall Pilates into beginner, intermediate, advanced, and recovery exercises. The app keeps arm-weight-bearing wall Pilates (wall pushups, wall planks, roll-down-to-pushup) locked out because the current injury profile reports immediate elbow pain with weight-bearing and gripping. Daily coach routines can now rotate through a much larger Wall Pilates pool while still filtering by Green/Yellow/Red/Nerve status.

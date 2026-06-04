@@ -1,6 +1,6 @@
 {
-  "name": "Calm Strength",
-  "short_name": "CalmStrength",
+  "name": "CTA — Conditioning Training App",
+  "short_name": "CTA",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f7fbf5",
