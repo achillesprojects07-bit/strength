@@ -1,156 +1,235 @@
-const todayKey = new Date().toISOString().slice(0,10);
-const state = JSON.parse(localStorage.getItem('calmStrengthState') || '{}');
-const defaults = {
-  profile: { maintenance: 2100, lossPerWeek: 1.5, plannedMove: 500 },
-  days: {}
+const STORAGE_KEY = 'calmStrength.v14';
+const todayKey = () => new Date().toISOString().slice(0,10);
+const old = JSON.parse(localStorage.getItem('calmStrength.v13') || localStorage.getItem('calmStrength.v11') || localStorage.getItem('calmStrength.v1') || '{}');
+let app = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || {
+  profile: old.profile || {name:'Aileen', sex:'female', age:0, weightUnit:'lb', weight:0, heightUnit:'cm', heightCm:0, heightFt:0, heightIn:0, activity:1.2, lossPerWeek:1.5, plannedMove:500, maintenance:2100, configured:false, startDate: todayKey()},
+  days: old.days || {},
+  trainer: {variation:0, filter:'all'},
+  preferences: old.preferences || {focus:'balanced', preferredCats:[], favoriteIds:[], avoidIds:[], maxMins:'any'}
 };
-const app = { ...defaults, ...state, profile: { ...defaults.profile, ...(state.profile || {}) }, days: { ...(state.days || {}) } };
-if (!app.days[todayKey]) app.days[todayKey] = { pain: 'green', food: [], workouts: [], body: [] };
+function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
+function day(date=todayKey()){ if(!app.days[date]) app.days[date]={pain:'green', food:[], workouts:[], body:[], sessionDone:false, sessionKey:''}; return app.days[date]; }
+function sum(arr,k='cals'){ return arr.reduce((a,b)=>a+(Number(b[k])||0),0); }
+function lbToKg(lb){ return lb*0.45359237; }
+function heightCm(){ const p=app.profile; return p.heightUnit==='ftin' ? ((Number(p.heightFt)||0)*12+(Number(p.heightIn)||0))*2.54 : Number(p.heightCm)||0; }
+function weightKg(){ const p=app.profile; return p.weightUnit==='kg' ? Number(p.weight)||0 : lbToKg(Number(p.weight)||0); }
+function calculateMaintenance(){ const p=app.profile; const w=weightKg(), h=heightCm(), age=Number(p.age)||0; if(!w||!h||!age) return Number(p.maintenance)||2100; const bmr = p.sex==='male' ? 10*w + 6.25*h - 5*age + 5 : 10*w + 6.25*h - 5*age - 161; return Math.round(bmr * (Number(p.activity)||1.2)); }
+function targetDeficit(){ return Math.round((Number(app.profile.lossPerWeek)||1.5) * 3500 / 7); }
+function idealIntake(){ return Math.max(900, Math.round((Number(app.profile.maintenance)||calculateMaintenance()) + (Number(app.profile.plannedMove)||500) - targetDeficit())); }
+function safetyRating(ideal=idealIntake()){ if(ideal < 1200) return ['Very aggressive','Your food budget is low. Reduce loss target or planned movement.']; if(ideal < 1400) return ['Aggressive','Possible for some people, but monitor hunger and energy.']; if(targetDeficit() >= 1000) return ['Aggressive','2 lb/week requires a large daily deficit.']; return ['Sustainable','Reasonable starting target if energy and pain stay stable.']; }
+function formatDate(){ const now=new Date(); document.getElementById('dateText').textContent = now.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); document.getElementById('dayText').textContent = now.toLocaleDateString(undefined,{weekday:'long'}); document.getElementById('greeting').textContent = `Good morning, ${app.profile.name || 'Aileen'} 👋`; }
 
 const foodDb = {
-  'rice': { qty:'1 cup cooked', cals:200 }, 'half rice': { qty:'1/2 cup cooked', cals:100 }, 'egg': { qty:'1 pc', cals:75 }, 'fried egg': { qty:'1 pc', cals:90 },
-  'chicken breast': { qty:'100 g', cals:165 }, 'chicken thigh': { qty:'1 pc', cals:220 }, 'adobo': { qty:'1 serving', cals:380 }, 'sinigang': { qty:'1 bowl', cals:320 },
-  'tinola': { qty:'1 bowl', cals:250 }, 'tofu': { qty:'100 g', cals:140 }, 'bangus': { qty:'1 serving', cals:260 }, 'tuna': { qty:'1 can', cals:150 },
-  'pandesal': { qty:'1 pc', cals:120 }, 'banana': { qty:'1 medium', cals:105 }, 'greek yogurt': { qty:'1 cup', cals:140 }, 'coffee with milk': { qty:'1 cup', cals:60 },
-  '3 in 1 coffee': { qty:'1 sachet', cals:90 }, 'milk tea': { qty:'1 regular', cals:350 }, 'coke': { qty:'1 can', cals:140 }, 'pancit': { qty:'1 plate', cals:400 }
+  'rice':{qty:'1 cup cooked',cals:200}, 'half cup rice':{qty:'1/2 cup cooked',cals:100}, 'egg':{qty:'1 pc',cals:80}, 'fried egg':{qty:'1 pc',cals:95},
+  'chicken breast':{qty:'100 g',cals:165}, 'chicken thigh':{qty:'1 medium pc',cals:220}, 'fish':{qty:'100 g',cals:130}, 'tuna':{qty:'1 small can',cals:120},
+  'tofu':{qty:'100 g',cals:90}, 'greek yogurt':{qty:'1 cup',cals:130}, 'banana':{qty:'1 medium',cals:105}, 'apple':{qty:'1 medium',cals:95},
+  'adobo':{qty:'1 serving',cals:350}, 'sinigang':{qty:'1 bowl',cals:300}, 'tinola':{qty:'1 bowl',cals:250}, 'pancit':{qty:'1 plate',cals:450},
+  'lumpia':{qty:'1 pc',cals:100}, 'pandesal':{qty:'1 pc',cals:120}, 'milk tea':{qty:'16 oz',cals:350}, '3-in-1 coffee':{qty:'1 sachet',cals:90},
+  'coke':{qty:'1 can',cals:140}, 'cafe latte':{qty:'12 oz',cals:180}
 };
 
-const workouts = [
-  { title:'Lower Body Build', mins:25, cals:160, safe:['green','yellow'], tags:['No grip','Legs','Glutes'], note:'Sit-to-stand, wall squat, glute bridge, step-ups, calf raises.' },
-  { title:'Walking Intervals', mins:40, cals:220, safe:['green','yellow'], tags:['No elbow load','Fat loss','Intervals'], note:'Easy warm-up, then 2 min normal + 1 min brisk.' },
-  { title:'Recovery Core', mins:18, cals:70, safe:['green','yellow','red'], tags:['No plank','Back-based','Gentle'], note:'Heel taps, supine marching, pelvic tilts, dead bug legs only.' },
-  { title:'Elbow Mobility Only', mins:10, cals:20, safe:['green','yellow','red','nerve'], tags:['Rehab','No load','Gentle'], note:'Bend/straighten, forearm rotation, wrist motion, hand opening.' },
-  { title:'Low-Impact Burn', mins:24, cals:140, safe:['green'], tags:['No grip','Cardio','Circuit'], note:'Marching, side steps, sit-to-stand, low step-ups.' },
-  { title:'Tempo Strength', mins:26, cals:150, safe:['green'], tags:['No weights','Anti-plateau','Control'], note:'Slow sit-to-stand, bridge holds, wall squat holds.' }
+const exercises = [
+  {id:'walk-easy', cat:'Walking', title:'Easy Walk', mins:25, cals:125, safe:['green','yellow','red'], level:1, setup:'Comfortable pace. No hand weights. Do not grip treadmill rails.', prescription:'20–45 min easy.', stop:'Stop if dizziness, sharp pain, or you need to grip for support.'},
+  {id:'walk-brisk', cat:'Walking', title:'Brisk Walk Blocks', mins:35, cals:190, safe:['green','yellow'], level:2, setup:'Alternate comfortable and brisk pace. Arms relaxed.', prescription:'5 min warm-up, 2 min normal + 1 min brisk x 8, cool down.', stop:'Reduce pace if knees, back, or elbows tense.'},
+  {id:'walk-hills', cat:'Walking', title:'Gentle Incline Walk', mins:30, cals:180, safe:['green'], level:3, setup:'Small incline only. No railing grip.', prescription:'5 min easy + 15–20 min light incline + cool down.', stop:'Skip if you grip rails or feel joint strain.'},
+  {id:'split-walk', cat:'Walking', title:'Split Walk Day', mins:50, cals:250, safe:['green','yellow'], level:1, setup:'Break into two or three short walks.', prescription:'20 min morning + 20 min afternoon + 10 min evening.', stop:'Keep all walks easy on Yellow days.'},
+  {id:'indoor-march', cat:'Conditioning', title:'Indoor March Circuit', mins:20, cals:110, safe:['green','yellow'], level:1, setup:'Hands relaxed, no arm pumping if elbows complain.', prescription:'March 60 sec, rest 30 sec x 10.', stop:'Stop if balance feels off.'},
+  {id:'step-touch', cat:'Conditioning', title:'Step-Touch Burn', mins:22, cals:130, safe:['green','yellow'], level:1, setup:'Side step and tap. Keep hands relaxed.', prescription:'45 sec step-touch + 30 sec easy march x 12.', stop:'Reduce range if hips or knees complain.'},
+  {id:'low-step', cat:'Conditioning', title:'Low Step-Up Cardio', mins:20, cals:140, safe:['green'], level:2, setup:'Low step only. Light fingertip balance on wall if needed.', prescription:'Step up 30 sec, rest 30 sec x 15–20.', stop:'No gripping rail. Stop if knee pain.'},
+  {id:'chair-cardio', cat:'Conditioning', title:'Chair Cardio Legs Only', mins:18, cals:80, safe:['green','yellow','red','nerve'], level:1, setup:'Seated. Hands resting open on thighs.', prescription:'Seated march, heel taps, toe taps, knee lifts.', stop:'Keep intensity gentle on Red/Nerve days.'},
+  {id:'sit-stand', cat:'Lower Body', title:'Sit-to-Stand', mins:8, cals:40, safe:['green','yellow'], level:1, setup:'Arms crossed or relaxed. Do not push with hands.', prescription:'2–4 sets x 8–12 reps.', stop:'Stop if you need to press through hands.'},
+  {id:'slow-sit-stand', cat:'Lower Body', title:'Slow Sit-to-Stand', mins:10, cals:55, safe:['green'], level:2, setup:'3-second lower, stand tall. No hand push.', prescription:'3 sets x 6–10 reps.', stop:'Stop if knee or elbow tension rises.'},
+  {id:'chair-hover', cat:'Lower Body', title:'Chair Hover Holds', mins:8, cals:45, safe:['green'], level:3, setup:'Hover just above chair, arms relaxed.', prescription:'4–6 holds x 10–20 sec.', stop:'Sit fully if form breaks.'},
+  {id:'wall-squat', cat:'Lower Body', title:'Wall Squat Hold', mins:8, cals:45, safe:['green','yellow'], level:1, setup:'Back on wall. Arms loose. Shallow range.', prescription:'3–5 holds x 15–30 sec.', stop:'No knee pain. Do not brace with hands.'},
+  {id:'wall-squat-pulse', cat:'Lower Body', title:'Wall Squat Mini Pulses', mins:9, cals:55, safe:['green'], level:3, setup:'Shallow wall squat with small movement.', prescription:'3 rounds x 20 mini pulses.', stop:'Stop if knees ache.'},
+  {id:'glute-bridge', cat:'Lower Body', title:'Glute Bridge', mins:8, cals:40, safe:['green','yellow'], level:1, setup:'Lie on back. Arms relaxed, palms open.', prescription:'3 sets x 10–15 reps.', stop:'Do not press hard through arms.'},
+  {id:'bridge-hold', cat:'Lower Body', title:'Bridge Hold', mins:8, cals:45, safe:['green','yellow'], level:2, setup:'Lift hips and hold. Neck relaxed.', prescription:'4 holds x 15–30 sec.', stop:'Stop for back cramping.'},
+  {id:'marching-bridge', cat:'Lower Body', title:'Marching Bridge', mins:10, cals:60, safe:['green'], level:3, setup:'Bridge position, tiny marches. Arms relaxed.', prescription:'2–3 sets x 8 total marches.', stop:'Stop if pelvis rocks or arms press down.'},
+  {id:'side-leg', cat:'Lower Body', title:'Side-Lying Leg Raise', mins:8, cals:35, safe:['green','yellow','red'], level:1, setup:'Lie fully on side with pillow. Do not prop on elbow.', prescription:'2–3 sets x 10–15 each side.', stop:'No elbow propping.'},
+  {id:'clamshell', cat:'Lower Body', title:'Side-Lying Clamshell', mins:8, cals:35, safe:['green','yellow','red'], level:1, setup:'No band. Knees bent. Head on pillow.', prescription:'2–3 sets x 12 each side.', stop:'Stop if hip pinches.'},
+  {id:'standing-abduction', cat:'Lower Body', title:'Standing Side Leg Lift', mins:8, cals:45, safe:['green','yellow'], level:1, setup:'Light fingertip wall touch only.', prescription:'2–3 sets x 10–15 each side.', stop:'No gripping wall or chair.'},
+  {id:'stepup', cat:'Lower Body', title:'Low Step-Up Strength', mins:10, cals:65, safe:['green'], level:2, setup:'Low step. Fingers touch wall if needed.', prescription:'2–3 sets x 6–10 each leg.', stop:'Stop if you need to grip.'},
+  {id:'calf', cat:'Lower Body', title:'Standing Calf Raise', mins:6, cals:30, safe:['green','yellow'], level:1, setup:'Light fingertip support.', prescription:'3 sets x 12–20 reps.', stop:'No gripping support.'},
+  {id:'seated-leg-ext', cat:'Lower Body', title:'Seated Leg Extension', mins:7, cals:30, safe:['green','yellow','red'], level:1, setup:'Sit tall, hands relaxed.', prescription:'2–3 sets x 10–15 each leg.', stop:'Stop for knee pain.'},
+  {id:'standing-hamcurl', cat:'Lower Body', title:'Standing Hamstring Curl', mins:7, cals:35, safe:['green','yellow'], level:1, setup:'Light fingertip balance.', prescription:'2–3 sets x 10–15 each side.', stop:'No gripping.'},
+  {id:'deadbug-legs', cat:'Core', title:'Dead Bug Legs Only', mins:8, cals:30, safe:['green','yellow'], level:1, setup:'Arms resting on floor, not pressing.', prescription:'2–3 sets x 6–10 each side.', stop:'Stop if back arches.'},
+  {id:'heel-taps', cat:'Core', title:'Heel Taps', mins:8, cals:30, safe:['green','yellow'], level:1, setup:'On back, knees bent. Arms relaxed.', prescription:'2–3 sets x 8–12 each side.', stop:'Keep movement slow.'},
+  {id:'supine-march', cat:'Core', title:'Supine March', mins:7, cals:25, safe:['green','yellow','red'], level:1, setup:'Lie on back. No arm pressure.', prescription:'2–3 sets x 12 total.', stop:'Stop if back strains.'},
+  {id:'pelvic-tilt', cat:'Core', title:'Pelvic Tilt', mins:6, cals:15, safe:['green','yellow','red','nerve'], level:1, setup:'Gentle low-back flatten and release.', prescription:'2 sets x 10 slow reps.', stop:'No bracing with arms.'},
+  {id:'seated-knee', cat:'Core', title:'Seated Knee Lifts', mins:8, cals:30, safe:['green','yellow','red'], level:1, setup:'Hands open on thighs or chair seat without gripping.', prescription:'2–3 sets x 10 each side.', stop:'Stop if hip flexors cramp.'},
+  {id:'standing-march-core', cat:'Core', title:'Standing Core March', mins:8, cals:45, safe:['green','yellow'], level:1, setup:'Tall posture, slow knee lifts.', prescription:'3 rounds x 45 sec.', stop:'Use wall fingertip touch if needed.'},
+  {id:'chin-tuck', cat:'Posture', title:'Chin Tuck', mins:4, cals:5, safe:['green','yellow','red','nerve'], level:1, setup:'Gentle double-chin motion.', prescription:'2 sets x 8 reps.', stop:'No neck pain.'},
+  {id:'scap-set', cat:'Posture', title:'Scapular Setting', mins:5, cals:5, safe:['green','yellow','red','nerve'], level:1, setup:'Shoulders gently back/down. No hard squeeze.', prescription:'3 sets x 8, hold 3 sec.', stop:'Stop if elbow tingles.'},
+  {id:'shoulder-roll', cat:'Posture', title:'Shoulder Rolls', mins:4, cals:5, safe:['green','yellow','red','nerve'], level:1, setup:'Small relaxed circles.', prescription:'10 forward, 10 backward.', stop:'Keep arms heavy and relaxed.'},
+  {id:'wall-posture', cat:'Posture', title:'Wall Posture Reset', mins:5, cals:5, safe:['green','yellow'], level:1, setup:'Back to wall, arms relaxed.', prescription:'5 slow breaths x 3 rounds.', stop:'Skip if wall position triggers elbow.'},
+  {id:'elbow-rom', cat:'Rehab', title:'Elbow Bend / Straighten', mins:4, cals:5, safe:['green','yellow','red','nerve'], level:1, setup:'Unloaded, slow, pain-free.', prescription:'1–2 sets x 10 reps.', stop:'Do not stretch into pain.'},
+  {id:'forearm-rotate', cat:'Rehab', title:'Forearm Rotation Unloaded', mins:4, cals:5, safe:['green','yellow','red'], level:1, setup:'Elbow by side. Palm up/down, no object.', prescription:'1–2 sets x 10 reps.', stop:'Stop if medial elbow catches.'},
+  {id:'wrist-rom', cat:'Rehab', title:'Wrist Motion Unloaded', mins:4, cals:5, safe:['green','yellow','red'], level:1, setup:'Forearm supported, hand relaxed.', prescription:'1–2 sets x 10 reps.', stop:'No forced stretching.'},
+  {id:'hand-open', cat:'Rehab', title:'Gentle Hand Opening', mins:3, cals:3, safe:['green','yellow','red','nerve'], level:1, setup:'Open fingers, relax. No squeezing.', prescription:'1–2 sets x 10 reps.', stop:'No gripping.'},
+  {id:'wrist-iso', cat:'Rehab', title:'Wrist Flexion Isometric', mins:5, cals:5, safe:['green'], level:2, setup:'10–20% effort against other hand.', prescription:'5 holds x 5–10 sec.', stop:'Pain must stay 0–2/10.'},
+  {id:'pronation-iso', cat:'Rehab', title:'Pronation Isometric', mins:5, cals:5, safe:['green'], level:2, setup:'Elbow at side. Other hand blocks gently.', prescription:'5 holds x 5–10 sec.', stop:'No sharp pain.'},
+  {id:'finger-iso', cat:'Rehab', title:'Finger Flexor Isometric', mins:4, cals:3, safe:['green'], level:2, setup:'No fist. Gentle finger press only.', prescription:'5 holds x 5 sec.', stop:'No gripping pain.'}
 ];
 
-function save(){ localStorage.setItem('calmStrengthState', JSON.stringify(app)); }
-function day(){ return app.days[todayKey]; }
-function targetDeficit(){ return Number(app.profile.lossPerWeek) * 3500 / 7; }
-function idealIntake(){ return Math.round(Number(app.profile.maintenance) + Number(app.profile.plannedMove) - targetDeficit()); }
-function foodTotal(){ return day().food.reduce((s,x)=>s+Number(x.cals||0),0); }
-function moveTotal(){ return day().workouts.reduce((s,x)=>s+Number(x.cals||0),0); }
-function formatDate(){
-  const d = new Date();
-  document.getElementById('dateText').textContent = d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
-  document.getElementById('dayText').textContent = d.toLocaleDateString(undefined,{weekday:'long'});
-  const hour = d.getHours();
-  document.getElementById('greeting').textContent = `${hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'}, Aileen 👋`;
+const weeklyPattern = ['Strength Base','Walking Intervals','Core + Posture','Lower Body Variety','Steady Walk','Conditioning Circuit','Recovery'];
+const phases = [
+  {name:'Foundation', weeks:'1–4', focus:'Learn movements, control pain, build consistency.', progress:'Add minutes or reps only.'},
+  {name:'Volume Build', weeks:'5–8', focus:'More total work without adding elbow stress.', progress:'Add one set or longer walking.'},
+  {name:'Tempo Control', weeks:'9–12', focus:'Slow lowering, holds, better muscle control.', progress:'Slower tempo, pauses.'},
+  {name:'Density + Variety', weeks:'13–16', focus:'Circuits, intervals, more variety.', progress:'Shorter rests, more rounds.'}
+];
+function weekNumber(){ const start = app.profile.startDate ? new Date(app.profile.startDate) : new Date(); const diff = Math.floor((new Date(todayKey()) - start)/(86400000)); return Math.max(1, Math.floor(diff/7)+1); }
+function phaseIndex(){ return Math.min(3, Math.floor((weekNumber()-1)/4)); }
+function dayIndex(){ return new Date().getDay(); }
+function painRules(){ const p=day().pain; if(p==='green') return {mode:'Train', intensity:'moderate', allowProgress:true, title:'Green Day — Train safely', note:'You can do today’s generated workout. Progress only one variable.'}; if(p==='yellow') return {mode:'Maintain', intensity:'light', allowProgress:false, title:'Yellow Day — Maintain, don’t push', note:'Workout changed to walking, recovery core, and mobility. No progression today.'}; if(p==='red') return {mode:'Recovery', intensity:'gentle', allowProgress:false, title:'Red Day — Recovery only', note:'No strength or calorie chasing. Gentle movement and mobility only.'}; return {mode:'Nerve Safety', intensity:'gentle', allowProgress:false, title:'Nerve symptoms — Avoid loading', note:'Avoid elbow loading and consider medical assessment if numbness/tingling continues.'}; }
+function byId(id){ return exercises.find(e=>e.id===id); }
+function prefs(){ if(!app.preferences) app.preferences={focus:'balanced', preferredCats:[], favoriteIds:[], avoidIds:[], maxMins:'any'}; return app.preferences; }
+function prefScore(e){ const pr=prefs(); let score=0; if((pr.preferredCats||[]).includes(e.cat)) score+=4; if((pr.favoriteIds||[]).includes(e.id)) score+=8; if(pr.focus==='weightloss' && ['Walking','Conditioning'].includes(e.cat)) score+=3; if(pr.focus==='strength' && e.cat==='Lower Body') score+=3; if(pr.focus==='recovery' && ['Core','Posture','Rehab'].includes(e.cat)) score+=3; if(pr.focus==='short' && e.mins<=10) score+=2; return score; }
+function allowedByPrefs(e){ const pr=prefs(); if((pr.avoidIds||[]).includes(e.id)) return false; if(pr.maxMins!=='any' && e.mins>Number(pr.maxMins)) return false; return true; }
+function choose(cat, pain, levelMax, count, offset=0){ const pool = exercises.filter(e=>e.cat===cat && e.safe.includes(pain) && e.level<=levelMax && allowedByPrefs(e)).sort((a,b)=>prefScore(b)-prefScore(a)); const out=[]; for(let i=0;i<count && pool.length;i++) out.push(pool[(i+offset)%pool.length]); return out; }
+function generateSession(variation=app.trainer.variation){ const p=day().pain; const rule=painRules(); const phase=phaseIndex(); const weekday=weeklyPattern[dayIndex()]; let levelMax = p==='green' ? Math.min(4, phase+1) : 1; let ex=[]; let title=weekday; let targetCals=Math.round((Number(app.profile.plannedMove)||500)*0.38);
+  if(p==='red' || p==='nerve') { title = p==='nerve' ? 'Nerve-Safe Recovery' : 'Red Day Recovery'; ex=[byId('chair-cardio'), byId('pelvic-tilt'), byId('chin-tuck'), byId('scap-set'), byId('elbow-rom'), byId('hand-open')]; targetCals=70; }
+  else if(p==='yellow') { title='Yellow Day Maintain'; ex=[...choose('Walking',p,1,1,variation), ...choose('Core',p,1,2,variation), ...choose('Posture',p,1,2,variation), ...choose('Rehab',p,1,2,variation)]; targetCals=120; }
+  else {
+    const idx=dayIndex();
+    if(idx===1){ ex=[...choose('Lower Body',p,levelMax,5,variation), ...choose('Core',p,levelMax,1,variation), byId('scap-set')]; targetCals=180+phase*25; }
+    else if(idx===2){ ex=[...choose('Walking',p,Math.min(3,levelMax+1),1,variation+1), ...choose('Conditioning',p,levelMax,1,variation), byId('elbow-rom'), byId('wrist-rom')]; targetCals=220+phase*30; }
+    else if(idx===3){ ex=[...choose('Core',p,levelMax,3,variation), ...choose('Posture',p,1,2,variation), ...choose('Rehab',p,2,2,variation)]; targetCals=110+phase*15; }
+    else if(idx===4){ ex=[...choose('Lower Body',p,levelMax,4,variation+3), ...choose('Conditioning',p,levelMax,1,variation+1), byId('hand-open')]; targetCals=190+phase*25; }
+    else if(idx===5){ ex=[...choose('Walking',p,Math.min(3,levelMax+1),2,variation), ...choose('Posture',p,1,1,variation)]; targetCals=250+phase*35; }
+    else if(idx===6){ ex=[...choose('Conditioning',p,levelMax,3,variation), ...choose('Lower Body',p,levelMax,2,variation+2), byId('elbow-rom')]; targetCals=200+phase*35; }
+    else { title='Recovery + Mobility'; ex=[byId('walk-easy'), byId('pelvic-tilt'), byId('side-leg'), byId('chin-tuck'), byId('elbow-rom'), byId('forearm-rotate')]; targetCals=110; }
+  }
+  ex=ex.filter(Boolean);
+  const cals=Math.round(ex.reduce((a,e)=>a+(e.cals||0),0)); const mins=Math.round(ex.reduce((a,e)=>a+(e.mins||0),0));
+  return {title, rule, phase:phases[phase], week:weekNumber(), ex, cals: Math.max(cals,targetCals), mins, weekday}; }
+
+function buildSessionFromExerciseIds(title, ids, targetCals, note, badge){
+  const p=day().pain; const rule=painRules(); const phase=phases[phaseIndex()];
+  let ex=ids.map(byId).filter(Boolean).filter(e=>e.safe.includes(p) && allowedByPrefs(e)); if(!ex.length) ex=ids.map(byId).filter(Boolean).filter(e=>e.safe.includes(p));
+  const cals=Math.max(Math.round(ex.reduce((a,e)=>a+(e.cals||0),0)), targetCals||0);
+  const mins=Math.round(ex.reduce((a,e)=>a+(e.mins||0),0));
+  return {title, rule, phase, week:weekNumber(), ex, cals, mins, note, badge};
 }
-function updatePainUI(){
-  const pain = day().pain;
-  document.querySelectorAll('.pain-option').forEach(b => b.classList.toggle('selected', b.dataset.pain === pain));
-  const banner = document.getElementById('painBanner');
-  const copy = {
-    green:['🛡️','Green day detected','You’re good to train. We’ll recommend the best plan for today.'],
-    yellow:['🟡','Yellow day detected','Maintain, don’t push. Walking and gentle strength only.'],
-    red:['🔴','Red day detected','Recovery mode. No strength progression today.'],
-    nerve:['⚡','Nerve symptoms selected','Avoid elbow loading and consider medical assessment.']
-  }[pain];
-  banner.innerHTML = `<span>${copy[0]}</span><p><strong>${copy[1]}</strong> — ${copy[2]}</p>`;
-  banner.style.background = pain === 'green' ? '#eaf7ee' : pain === 'yellow' ? '#fff7df' : pain === 'red' ? '#fff1ef' : '#f6edff';
+function cloneSession(base, patch={}){ return Object.assign({}, base, patch); }
+function coachOptions(){
+  const p=day().pain; const planned=Number(app.profile.plannedMove)||500; const phase=phaseIndex(); const main=generateSession(app.trainer.variation); const pr=prefs();
+  if(p==='nerve'){
+    return [
+      buildSessionFromExerciseIds('Nerve-Safe Reset', ['chair-cardio','pelvic-tilt','chin-tuck','scap-set','elbow-rom','hand-open'], 55, 'Best choice: stop loading and keep the body moving gently while monitoring numbness/tingling.', 'Best / safest'),
+      buildSessionFromExerciseIds('Gentle Walk + Mobility', ['walk-easy','elbow-rom','forearm-rotate','wrist-rom','hand-open'], 80, 'Only if walking feels comfortable. No gripping, no rails, no elbow strengthening.', 'Gentle move'),
+      buildSessionFromExerciseIds('Food-Budget Recovery Day', ['pelvic-tilt','supine-march','chin-tuck','hand-open'], 35, 'Lowest elbow demand. Use food budget today instead of chasing burn.', 'Recovery')
+    ];
+  }
+  if(p==='red'){
+    return [
+      buildSessionFromExerciseIds('Red Day Recovery', ['chair-cardio','pelvic-tilt','supine-march','chin-tuck','elbow-rom','hand-open'], 60, 'Best choice: recovery only. No calorie chasing, no progression.', 'Best / safest'),
+      buildSessionFromExerciseIds('Easy Walk if Comfortable', ['walk-easy','forearm-rotate','wrist-rom','hand-open'], 90, 'Use this only if walking does not make you tense or grip for balance.', 'Gentle move'),
+      buildSessionFromExerciseIds('Mobility Only', ['pelvic-tilt','chin-tuck','scap-set','elbow-rom','hand-open'], 30, 'Choose this if even easy movement feels like too much today.', 'Minimum effective')
+    ];
+  }
+  if(p==='yellow'){
+    return [
+      cloneSession(main, {title:'Coach Pick: Maintain Day', badge:'Best choice', note:'Pain is Yellow, so the app removes progression and prioritizes walking, recovery core, and mobility.'}),
+      buildSessionFromExerciseIds('Easier Option: Recovery Core + Walk', ['walk-easy','supine-march','heel-taps','pelvic-tilt','chin-tuck','elbow-rom'], 120, 'Choose this if energy is low or your elbows are sensitive today.', 'Easier'),
+      buildSessionFromExerciseIds('Calorie Option: Split Walk Day', ['split-walk','chair-cardio','elbow-rom','hand-open'], Math.round(planned*0.45), 'Most movement calories with low elbow demand. Keep pace easy; no intervals.', 'Calorie-focused')
+    ];
+  }
+  if(pr.focus==='weightloss') return [
+    cloneSession(main, {title:'Coach Pick: Preference-Aware Plan', badge:'Best choice', note:'Built from today’s safety status plus your preference for calorie-focused movement.'}),
+    buildSessionFromExerciseIds('Preferred Burn: Walk + Step-Touch', ['walk-brisk','step-touch','indoor-march','low-step','elbow-rom'], Math.round(planned*0.6), 'Prioritizes walking and conditioning because you selected weight-loss focus.', 'Calorie-focused'),
+    buildSessionFromExerciseIds('Lower-Impact Burn: Split Walk Day', ['split-walk','chair-cardio','standing-abduction','calf','hand-open'], Math.round(planned*0.5), 'A lower-elbow-demand calorie option that avoids gripping and arm loading.', 'Easier burn')
+  ];
+  if(pr.focus==='recovery') return [
+    cloneSession(main, {title:'Coach Pick: Recovery-Biased Plan', badge:'Best choice', note:'The coach is prioritizing low-irritation work because you selected recovery preference.'}),
+    buildSessionFromExerciseIds('Recovery Core + Mobility', ['walk-easy','supine-march','heel-taps','pelvic-tilt','chin-tuck','scap-set','elbow-rom'], 120, 'Keeps you moving while reducing flare risk.', 'Recovery'),
+    buildSessionFromExerciseIds('Gentle Lower Body', ['sit-stand','glute-bridge','side-leg','seated-leg-ext','calf','hand-open'], 130, 'A simple strength option without gripping or elbow loading.', 'Gentle strength')
+  ];
+  const strengthIds = phase>=2 ? ['slow-sit-stand','wall-squat-pulse','bridge-hold','stepup','calf','deadbug-legs','scap-set','elbow-iso'] : ['sit-stand','wall-squat','glute-bridge','standing-abduction','calf','heel-taps','scap-set','elbow-rom'];
+  return [
+    cloneSession(main, {title:'Coach Pick: Today’s Best Plan', badge:'Best choice', note:'This is the app-selected plan based on today’s day, week, phase, and pain level.'}),
+    buildSessionFromExerciseIds('Strength Option: Lower Body Build', strengthIds, 170+phase*30, 'Choose this if you want muscle-building without gripping or arm weight-bearing.', 'Strength'),
+    buildSessionFromExerciseIds('Calorie Option: Walk + Low Impact Burn', ['walk-brisk','step-touch','indoor-march','sit-stand','glute-bridge','elbow-rom'], Math.round(planned*0.55), 'Choose this when food is tight and you want more burn without elbow stress.', 'Calorie-focused')
+  ];
 }
-function updateBudget(){
-  const ideal = idealIntake(); const food = foodTotal(); const move = moveTotal(); const planned = Number(app.profile.plannedMove);
-  const foodLeft = ideal - food; const moveLeft = Math.max(0, planned - move);
-  document.getElementById('idealCalories').textContent = ideal;
-  document.getElementById('foodLogged').textContent = food;
-  document.getElementById('foodLeft').textContent = foodLeft >= 0 ? `${foodLeft} cal left` : `${Math.abs(foodLeft)} cal over`;
-  document.getElementById('foodBudgetSmall').textContent = ideal;
-  document.getElementById('moveDone').textContent = move;
-  document.getElementById('moveTargetSmall').textContent = planned;
-  document.getElementById('moveLeft').textContent = `${moveLeft} cal left`;
-  document.getElementById('moveBudgetSmall').textContent = planned;
-  document.getElementById('foodRing').style.setProperty('--p', Math.min(100, Math.round(food/ideal*100)));
-  document.getElementById('moveRing').style.setProperty('--p', planned ? Math.min(100, Math.round(move/planned*100)) : 100);
-  const pain = day().pain;
-  let title='On Track', icon='✅', note=`You have ${Math.max(0,foodLeft)} calories left and ${moveLeft} movement calories left.`;
-  if (foodLeft < 0 && moveLeft > 0) { title='Recoverable'; icon='🎯'; note=`You are ${Math.abs(foodLeft)} calories over food target. You still have ${moveLeft} safe movement calories left, if elbows allow.`; }
-  if (foodLeft < 0 && moveLeft === 0) { title='Over Target'; icon='⚠️'; note=`You are ${Math.abs(foodLeft)} calories over today. Do not punish-train; balance this tomorrow or through the weekly bank.`; }
-  if (foodLeft >= 0 && foodLeft < 300) { title='Tight but Okay'; icon='🟡'; note=`You have ${foodLeft} calories left. Keep the next meal controlled or add easy walking if safe.`; }
-  if (pain === 'red' || pain === 'nerve') { title = pain === 'nerve' ? 'Protect First' : 'Recovery Mode'; icon = pain === 'nerve' ? '⚡' : '🔴'; note = `Do not force the ${planned}-cal movement target today. Keep movement gentle and protect your elbows.`; }
-  document.getElementById('balanceIcon').textContent = icon;
-  document.getElementById('balanceTitle').textContent = title;
-  document.getElementById('balanceNote').textContent = note;
-  document.getElementById('sumFood').textContent = food;
-  document.getElementById('sumMove').textContent = move;
-  document.getElementById('sumIdeal').textContent = ideal;
-  document.getElementById('sumPain').textContent = pain[0].toUpperCase()+pain.slice(1);
+function renderCoachOptions(){
+  const opts=coachOptions();
+  const html=opts.map((s,i)=>`<div class="coach-card ${i===0?'featured':''}"><div class="coach-top"><span class="tag ${i===0?'green':'blue'}">${s.badge||'Option'}</span><span class="tag">${s.mins} min · ${s.cals} cal est.</span></div><h4>${s.title}</h4><p>${s.note||s.rule.note}</p><div class="mini-exercises">${s.ex.slice(0,5).map(e=>`<span>${e.title}</span>`).join('')}</div><div class="helper-row"><button data-coach-add="${i}">Use this workout</button><button class="secondary" data-coach-preview="${i}">Preview</button></div></div>`).join('');
+  ['coachOptionsToday','coachOptionsTrain'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=html; });
+  document.querySelectorAll('[data-coach-add]').forEach(btn=>btn.onclick=()=>addCoachOption(Number(btn.dataset.coachAdd)));
+  document.querySelectorAll('[data-coach-preview]').forEach(btn=>btn.onclick=()=>previewCoachOption(Number(btn.dataset.coachPreview)));
 }
-function updatePlan(){
-  const pain=day().pain; let plan;
-  if (pain==='green') plan=[['🚶','Move','500 cal target','e.g. 60 min walk'],['🏃‍♀️','Strength','Lower Body','25–30 min'],['💜','Rehab','Elbow Mobility','10 min'],['🍴','Food Focus','High protein','at each meal']];
-  else if (pain==='yellow') plan=[['🚶','Move','Easy walking','20–40 min'],['🧘','Strength','Maintain only','no progression'],['💜','Rehab','Mobility only','gentle'],['🍴','Food Focus','Watch portions','avoid liquid calories']];
-  else plan=[['🚶','Move','Gentle only','if comfortable'],['🛑','Strength','Skip today','no progression'],['💜','Rehab','Calm-down','heat + mobility'],['🍴','Food Focus','Stay steady','no crash diet']];
-  document.getElementById('todayPlan').innerHTML = plan.map(p=>`<div class="plan-item"><span>${p[0]}</span><div><strong>${p[1]}</strong><p>${p[2]}<br><small>${p[3]}</small></p></div></div>`).join('');
+function previewCoachOption(i){
+  const s=coachOptions()[i] || coachOptions()[0];
+  document.getElementById('generatedWorkout').innerHTML=`<div class="trainer-hero"><h3>${s.title}</h3><p>${s.note||s.phase.focus}</p><div class="trainer-meta"><span class="tag green">${s.cals} cal est.</span><span class="tag">${s.mins} min</span><span class="tag blue">${s.phase.name}</span><span class="tag warn">${s.badge||'Coach option'}</span></div></div>${s.ex.map(e=>exerciseRow(e)).join('')}<div class="helper-row"><button id="addPreviewedCoach">Use this workout</button><button class="secondary" data-tab="today">Back to Today</button></div>`;
+  document.getElementById('addPreviewedCoach').onclick=()=>addCoachOption(i);
+  document.querySelectorAll('#generatedWorkout [data-tab]').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+  switchTab('train');
 }
-function renderEntries(){
-  const entries = [...day().food.map((x,i)=>({...x,type:'food',i})), ...day().workouts.map((x,i)=>({...x,type:'workout',i}))];
-  document.getElementById('entryList').innerHTML = entries.length ? entries.map(e=>`<div class="entry"><div><strong>${e.type==='food'?'🍏':'👟'} ${e.name}</strong><small>${e.qty || e.mins+' min'} · ${e.meal || e.kind} · ${e.cals} cal</small></div><button data-deltype="${e.type}" data-delindex="${e.i}">Delete</button></div>`).join('') : '<p class="hint">No entries yet today.</p>';
-  document.querySelectorAll('[data-deltype]').forEach(btn=>btn.onclick=()=>{ const arr = btn.dataset.deltype === 'food' ? day().food : day().workouts; arr.splice(Number(btn.dataset.delindex),1); save(); renderAll(); });
+function addCoachOption(i){
+  const s=coachOptions()[i] || coachOptions()[0];
+  day().workouts.push({name:`Coach: ${s.title}`, mins:s.mins, cals:s.cals, kind:s.badge || 'Coach Selected'});
+  day().sessionDone=true;
+  day().sessionKey=`${todayKey()}-coach-${i}-${app.trainer.variation}`;
+  save(); renderAll(); switchTab('today');
 }
-function renderWorkouts(){
-  const pain=day().pain;
-  document.getElementById('workoutCards').innerHTML = workouts.filter(w=>w.safe.includes(pain)).map(w=>`<article class="card compact workout-card"><div><h3>${w.title}</h3><p>${w.note}</p><div class="workout-tags"><span class="tag green">${w.mins} min</span><span class="tag">${w.cals} cal est.</span>${w.tags.map(t=>`<span class="tag warn">${t}</span>`).join('')}</div></div><button data-startworkout="${w.title}">Add</button></article>`).join('');
-  document.querySelectorAll('[data-startworkout]').forEach(btn=>btn.onclick=()=>{ const w=workouts.find(x=>x.title===btn.dataset.startworkout); day().workouts.push({name:w.title, mins:w.mins, cals:w.cals, kind:'Workout'}); save(); renderAll(); switchTab('today'); });
+function progressionCue(){ const phase=phaseIndex(); if(day().pain!=='green') return 'No progression today. Maintain or recover.'; return ['Add 1–2 reps only if no next-day flare.','Add one small set to one exercise only.','Use slower 3-second lowering or holds.','Use circuit flow or slightly shorter rest.'][phase]; }
+
+function updatePainUI(){ const p=day().pain; document.querySelectorAll('.pain-option').forEach(b=>b.classList.toggle('selected',b.dataset.pain===p)); const m={green:['🛡️','Green day detected','You can train safely today. The app will still avoid gripping and elbow loading.'],yellow:['⚠️','Yellow day detected','Maintain only. The app will avoid progression and choose light movement.'],red:['🛑','Red day detected','Recovery only. Do not chase calorie burn today.'],nerve:['⚡','Nerve symptoms selected','Avoid loading. Consider medical assessment if numbness or tingling persists.']}[p]; document.getElementById('painBanner').innerHTML=`<span>${m[0]}</span><p><strong>${m[1]}</strong> — ${m[2]}</p>`; }
+function updateBudget(){ const ideal=idealIntake(), food=sum(day().food), move=sum(day().workouts), planned=Number(app.profile.plannedMove)||500; const foodLeft=ideal-food, moveLeft=planned-move; document.getElementById('idealCalories').textContent=app.profile.configured?ideal:'—'; document.getElementById('idealSubtitle').textContent=app.profile.configured?'based on your goal + movement plan':'set profile first'; document.getElementById('foodLogged').textContent=food; document.getElementById('moveDone').textContent=move; document.getElementById('foodBudgetSmall').textContent=ideal; document.getElementById('moveTargetSmall').textContent=planned; document.getElementById('moveBudgetSmall').textContent=planned; document.getElementById('foodLeft').textContent=foodLeft>=0?`${foodLeft} cal left`:`${Math.abs(foodLeft)} cal over`; document.getElementById('moveLeft').textContent=moveLeft>0?`${moveLeft} cal left`:'Workout goal complete'; document.getElementById('foodRing').style.setProperty('--p',Math.min(100, food/ideal*100)); document.getElementById('moveRing').style.setProperty('--p',Math.min(100, move/planned*100)); document.getElementById('sumFood').textContent=food; document.getElementById('sumMove').textContent=move; document.getElementById('sumIdeal').textContent=ideal; document.getElementById('sumPain').textContent=day().pain;
+  const balanceTitle=document.getElementById('balanceTitle'), balanceIcon=document.getElementById('balanceIcon'), note=document.getElementById('balanceNote'); const painful=day().pain==='red'||day().pain==='nerve'; if(!app.profile.configured){balanceTitle.textContent='Set Profile'; balanceIcon.textContent='👤'; note.textContent='Enter your information so the app can calculate your ideal intake.';} else if(foodLeft>=300 && moveLeft<=0){balanceTitle.textContent='Great Balance'; balanceIcon.textContent='✅'; note.textContent=`Movement goal is complete and you still have ${foodLeft} food calories left.`;} else if(foodLeft>=0 && moveLeft>0){balanceTitle.textContent='On Track'; balanceIcon.textContent='✅'; note.textContent=`You have ${foodLeft} calories left. Complete ${moveLeft} more safe movement calories to support today’s budget.`;} else if(foodLeft<0 && moveLeft>0 && !painful){balanceTitle.textContent='Recoverable'; balanceIcon.textContent='🎯'; note.textContent=`You are ${Math.abs(foodLeft)} calories over food target, but still have movement left. Choose safe walking, not elbow-loading exercise.`;} else if(foodLeft<0 && painful){balanceTitle.textContent='Over Target — Protect Elbows'; balanceIcon.textContent='🛑'; note.textContent=`You are ${Math.abs(foodLeft)} calories over, but today is not a day to punish-train. Use the weekly bank.`;} else {balanceTitle.textContent='Tight but Okay'; balanceIcon.textContent='⚠️'; note.textContent='Keep the next meal controlled. Do not add painful exercise.';} }
+function renderPreferences(){
+  const el=document.getElementById('preferencesPanel'); if(!el) return; const pr=prefs();
+  const cats=[...new Set(exercises.map(e=>e.cat))];
+  const favoriteChoices=exercises.filter(e=>['Walking','Conditioning','Lower Body','Core'].includes(e.cat)).slice(0,28);
+  const avoidChoices=exercises.slice(0,42);
+  const chip=(type,e)=>`<label class="pref-chip"><input type="checkbox" data-pref-${type}="${e.id}" ${(pr[type+'Ids']||[]).includes(e.id)?'checked':''}>${e.title}</label>`;
+  el.innerHTML=`<div class="pref-summary"><b>Current coach bias:</b> ${pr.focus||'balanced'} · Preferred types: ${(pr.preferredCats||[]).join(', ')||'none'} · Favorites: ${(pr.favoriteIds||[]).length} · Avoid: ${(pr.avoidIds||[]).length}</div>
+  <div class="pref-block"><h4>Coach focus</h4><div class="pref-select-row"><label>Main priority<select id="prefFocus"><option value="balanced">Balanced</option><option value="weightloss">More calorie burn</option><option value="strength">More muscle/strength</option><option value="recovery">More recovery-safe</option><option value="short">Shorter workouts</option></select></label><label>Max exercise block length<select id="prefMaxMins"><option value="any">Any safe length</option><option value="10">10 min or less</option><option value="15">15 min or less</option><option value="25">25 min or less</option></select></label></div></div>
+  <div class="pref-block"><h4>Preferred workout types</h4><div class="pref-grid">${cats.map(c=>`<label class="pref-chip"><input type="checkbox" data-pref-cat="${c}" ${(pr.preferredCats||[]).includes(c)?'checked':''}>${c}</label>`).join('')}</div></div>
+  <div class="pref-block"><h4>Favorite exercises to prioritize</h4><div class="pref-grid">${favoriteChoices.map(e=>chip('favorite',e)).join('')}</div></div>
+  <div class="pref-block"><h4>Avoid / dislike exercises</h4><p class="hint">Use this for exercises that are technically safe but you dislike or cannot tolerate. Red-flag unsafe exercises are already blocked.</p><div class="pref-grid">${avoidChoices.map(e=>chip('avoid',e)).join('')}</div></div>`;
+  document.getElementById('prefFocus').value=pr.focus||'balanced'; document.getElementById('prefMaxMins').value=pr.maxMins||'any';
 }
-function renderLibrary(){
-  document.getElementById('foodLibrary').innerHTML = Object.entries(foodDb).map(([name,v])=>`<div class="library-food"><strong>${name}</strong><span>${v.qty} · ${v.cals} cal</span></div>`).join('');
-}
-function renderBody(){
-  const hist = Object.entries(app.days).flatMap(([date,d])=>(d.body||[]).map(b=>({...b,date}))).slice(-10).reverse();
-  document.getElementById('bodyHistory').innerHTML = hist.length ? hist.map(b=>`<div class="entry"><div><strong>${b.date}</strong><small>Weight: ${b.weight || '—'} · Waist: ${b.waist || '—'}</small></div></div>`).join('') : '<p class="hint">No body check-ins yet.</p>';
-}
-function renderAll(){ updatePainUI(); updateBudget(); updatePlan(); renderEntries(); renderWorkouts(); renderLibrary(); renderBody(); }
-function switchTab(tab){
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById(tab+'Screen').classList.add('active');
-  document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
-  window.scrollTo({top:0,behavior:'smooth'});
-}
+function renderTrainer(){ const s=generateSession(); document.getElementById('trainerHero').innerHTML=`<h3>${s.rule.title}</h3><p>${s.rule.note}</p><div class="trainer-meta"><span class="tag green">Week ${s.week}</span><span class="tag blue">${s.phase.name}</span><span class="tag">${s.title}</span><span class="tag warn">${s.cals} cal est.</span><span class="tag">${s.mins} min total</span></div><p><b>Progression:</b> ${progressionCue()}</p>`; document.getElementById('todaySession').innerHTML=s.ex.slice(0,7).map(e=>exerciseRow(e)).join(''); document.getElementById('generatorSummary').innerHTML=`<p><b>Today’s mode:</b> ${s.rule.mode}</p><p><b>Chosen plan:</b> ${s.title} · ${s.phase.name} · Week ${s.week}</p><p><b>Why:</b> Pain status is ${day().pain}. ${s.rule.note}</p><p><b>Coach options:</b> The app now gives a best plan, easier option, and calorie-focused option when safe.</p>`; renderGeneratedWorkout(); renderCoachOptions(); }
+function exerciseRow(e){ return `<div class="exercise-row"><div><h4>${e.title}</h4><p>${e.prescription}<small>${e.setup}<br><b>Stop rule:</b> ${e.stop}</small></p></div><span class="tag">${e.mins} min · ${e.cals} cal</span></div>`; }
+function renderGeneratedWorkout(){ const s=generateSession(); document.getElementById('generatedWorkout').innerHTML=`<div class="trainer-hero"><h3>${s.title}</h3><p>${s.phase.focus}</p><div class="trainer-meta"><span class="tag green">${s.cals} cal est.</span><span class="tag">${s.mins} min</span><span class="tag blue">${s.phase.name}</span></div></div>${s.ex.map(e=>exerciseRow(e)).join('')}<div class="helper-row"><button id="addGeneratedInside">Add this workout to today</button><button class="secondary" id="markSessionDone">Mark done, no calorie add</button></div>`; document.getElementById('addGeneratedInside').onclick=addRecommended; document.getElementById('markSessionDone').onclick=()=>{ day().sessionDone=true; save(); renderAll(); alert('Session marked complete.'); }; }
+function renderPlan(){ const p=day().pain, s=generateSession(); let items=[]; if(p==='green') items=[['🚶','Move',`${Number(app.profile.plannedMove)||500} cal target`,`Suggested: ${s.title}`],['🦵','Strength',s.phase.name,progressionCue()],['💜','Rehab','Elbow mobility','Pain-free only'],['🍴','Food Focus','Stay within budget','Protein each meal']]; else if(p==='yellow') items=[['🚶','Move','Easy walk','No intense intervals'],['🧘','Recovery Core','Back/seated only','No planks'],['💜','Rehab','Mobility only','No progression'],['🍴','Food Focus','Control dinner','Do not chase burn']]; else items=[['🌿','Recover','Gentle walk only','If comfortable'],['🪑','Chair Cardio','Optional easy','No calorie chasing'],['💜','Rehab','Gentle ROM','No isometrics'],['🍴','Food Focus','Use food budget','Weekly bank ok']]; document.getElementById('todayPlan').innerHTML=items.map(x=>`<div class="plan-item"><span>${x[0]}</span><div><strong>${x[1]}</strong><p>${x[2]}<br><small>${x[3]}</small></p></div></div>`).join(''); }
+function renderEntries(){ const entries=[...day().food.map((x,i)=>({...x,type:'food',i})),...day().workouts.map((x,i)=>({...x,type:'workout',i}))]; document.getElementById('entryList').innerHTML=entries.length?entries.map(e=>`<div class="entry"><div><strong>${e.type==='food'?'🍏':'👟'} ${e.name}</strong><small>${e.qty || (e.mins||0)+' min'} · ${e.meal || e.kind} · ${e.cals} cal</small></div><button data-deltype="${e.type}" data-delindex="${e.i}">Delete</button></div>`).join(''):'<p class="hint">No entries yet today.</p>'; document.querySelectorAll('[data-deltype]').forEach(btn=>btn.onclick=()=>{ const arr=btn.dataset.deltype==='food'?day().food:day().workouts; arr.splice(Number(btn.dataset.delindex),1); save(); renderAll(); }); }
+function renderLibrary(){ document.getElementById('foodLibrary').innerHTML=Object.entries(foodDb).map(([name,v])=>`<div class="library-food"><strong>${name}</strong><span>${v.qty} · ${v.cals} cal</span></div>`).join(''); const cats=['all',...new Set(exercises.map(e=>e.cat))]; document.getElementById('workoutFilters').innerHTML=cats.map(c=>`<button class="${app.trainer.filter===c?'active':''}" data-filter="${c}">${c}</button>`).join(''); document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{ app.trainer.filter=b.dataset.filter; save(); renderLibrary(); }); const filter=app.trainer.filter; document.getElementById('exerciseLibrary').innerHTML=exercises.filter(e=>filter==='all'||e.cat===filter).map(e=>`<div class="library-card"><h4>${e.title}</h4><p>${e.prescription}</p><div class="trainer-meta"><span class="tag">${e.cat}</span><span class="tag green">Level ${e.level}</span><span class="tag">${e.mins} min</span><span class="tag warn">${e.safe.join(', ')}</span></div><p class="hint"><b>Setup:</b> ${e.setup}<br><b>Stop:</b> ${e.stop}</p></div>`).join(''); }
+function renderPhaseMap(){ const ix=phaseIndex(); document.getElementById('phaseMap').innerHTML=phases.map((p,i)=>`<div class="phase ${i===ix?'active':''}"><strong>${p.name}</strong><p>Weeks ${p.weeks}</p><small>${p.focus}<br><b>${p.progress}</b></small></div>`).join(''); }
+function renderBody(){ const hist=Object.entries(app.days).flatMap(([date,d])=>(d.body||[]).map(b=>({...b,date}))).slice(-10).reverse(); document.getElementById('bodyHistory').innerHTML=hist.length?hist.map(b=>`<div class="entry"><div><strong>${b.date}</strong><small>Weight: ${b.weight||'—'} · Waist: ${b.waist||'—'}</small></div></div>`).join(''):'<p class="hint">No body check-ins yet.</p>'; const trend=Object.entries(app.days).slice(-14).reverse().map(([date,d])=>`<div class="entry"><div><strong>${date}</strong><small>Pain: ${d.pain} · Food ${sum(d.food)} cal · Movement ${sum(d.workouts)} cal · ${d.sessionDone?'session done':'session not marked'}</small></div></div>`).join(''); document.getElementById('trainingTrend').innerHTML=trend||'<p class="hint">No trend yet.</p>'; }
+function updateProfileUI(){ document.getElementById('setupCard').style.display=app.profile.configured?'none':'block'; document.getElementById('profileStatus').textContent=app.profile.configured?'Profile Set':'Set Profile'; const ideal=idealIntake(), rating=safetyRating(ideal); const preview=document.getElementById('profileCalcPreview'); if(preview) preview.innerHTML=`Estimated maintenance: <b>${app.profile.maintenance||calculateMaintenance()}</b> cal/day<br>Target daily deficit: <b>${targetDeficit()}</b> cal/day<br>Ideal intake with planned movement: <b>${ideal}</b> cal/day<br>Safety rating: <b>${rating[0]}</b> — ${rating[1]}`; }
+function renderAll(){ formatDate(); updateProfileUI(); updatePainUI(); updateBudget(); renderTrainer(); renderPlan(); renderEntries(); renderLibrary(); renderPhaseMap(); renderBody(); }
+function switchTab(tab){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(tab+'Screen').classList.add('active'); document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab)); window.scrollTo({top:0,behavior:'smooth'}); }
+function addRecommended(){ const s=generateSession(); day().workouts.push({name:`Generated: ${s.title}`, mins:s.mins, cals:s.cals, kind:'Generated Workout'}); day().sessionDone=true; day().sessionKey=`${todayKey()}-${app.trainer.variation}`; save(); renderAll(); switchTab('today'); }
 
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
 document.querySelectorAll('.pain-option').forEach(b=>b.addEventListener('click',()=>{ day().pain=b.dataset.pain; save(); renderAll(); }));
 document.querySelectorAll('[data-modal]').forEach(b=>b.addEventListener('click',()=>{ const m=document.getElementById(b.dataset.modal); if(m) m.showModal(); }));
-document.querySelector('[data-action="openFood"]').onclick=()=>switchTab('log');
-document.querySelector('[data-action="openWorkout"]').onclick=()=>switchTab('log');
+document.querySelector('[data-action="openFood"]').onclick=()=>switchTab('log'); document.querySelector('[data-action="openWorkout"]').onclick=()=>switchTab('log');
+document.getElementById('refreshPlanBtn').onclick=()=>{ app.trainer.variation=(app.trainer.variation+1)%7; save(); renderAll(); };
+document.getElementById('generateBtn').onclick=()=>{ renderTrainer(); switchTab('train'); };
+document.getElementById('nextVarBtn').onclick=()=>{ app.trainer.variation=(app.trainer.variation+1)%7; save(); renderAll(); };
+document.getElementById('addRecommendedBtn').onclick=addRecommended;
+const savePrefsBtn=document.getElementById('savePrefsBtn');
+if(savePrefsBtn) savePrefsBtn.onclick=()=>{ const pr=prefs(); pr.focus=document.getElementById('prefFocus')?.value||'balanced'; pr.maxMins=document.getElementById('prefMaxMins')?.value||'any'; pr.preferredCats=[...document.querySelectorAll('[data-pref-cat]:checked')].map(x=>x.dataset.prefCat); pr.favoriteIds=[...document.querySelectorAll('[data-pref-favorite]:checked')].map(x=>x.dataset.prefFavorite); pr.avoidIds=[...document.querySelectorAll('[data-pref-avoid]:checked')].map(x=>x.dataset.prefAvoid); save(); renderAll(); alert('Workout preferences saved. Coach-selected workouts updated.'); };
+const clearPrefsBtn=document.getElementById('clearPrefsBtn');
+if(clearPrefsBtn) clearPrefsBtn.onclick=()=>{ app.preferences={focus:'balanced', preferredCats:[], favoriteIds:[], avoidIds:[], maxMins:'any'}; save(); renderAll(); };
 
-document.getElementById('estimateFoodBtn').onclick=()=>{
-  const key = document.getElementById('foodName').value.trim().toLowerCase();
-  const found = Object.keys(foodDb).find(k=>key.includes(k));
-  if(found){ document.getElementById('foodQty').value = foodDb[found].qty; document.getElementById('foodCals').value = foodDb[found].cals; }
-  else alert('No estimate found yet. Enter calories manually, then save it as part of your log.');
-};
-document.getElementById('addFoodBtn').onclick=()=>{
-  const name=document.getElementById('foodName').value.trim(); const qty=document.getElementById('foodQty').value.trim(); const cals=Number(document.getElementById('foodCals').value); const meal=document.getElementById('mealType').value;
-  if(!name || !cals) return alert('Please enter food name and calories.');
-  day().food.push({name,qty,cals,meal}); ['foodName','foodQty','foodCals'].forEach(id=>document.getElementById(id).value=''); save(); renderAll();
-};
-document.getElementById('estimateWorkoutBtn').onclick=()=>{
-  const mins=Number(document.getElementById('workoutMins').value||0); if(!mins) return alert('Enter minutes first.');
-  document.getElementById('workoutName').value ||= 'Walking'; document.getElementById('workoutCals').value = Math.round(mins*5);
-};
-document.getElementById('addWorkoutBtn').onclick=()=>{
-  const name=document.getElementById('workoutName').value.trim(); const mins=Number(document.getElementById('workoutMins').value); const cals=Number(document.getElementById('workoutCals').value); const kind=document.getElementById('workoutType').value;
-  if(!name || !cals) return alert('Please enter activity name and calories.');
-  day().workouts.push({name,mins,cals,kind}); ['workoutName','workoutMins','workoutCals'].forEach(id=>document.getElementById(id).value=''); save(); renderAll();
-};
+document.getElementById('estimateFoodBtn').onclick=()=>{ const key=document.getElementById('foodName').value.trim().toLowerCase(); const found=Object.keys(foodDb).find(k=>key.includes(k)); if(found){document.getElementById('foodQty').value=foodDb[found].qty; document.getElementById('foodCals').value=foodDb[found].cals;} else alert('No estimate found yet. Enter calories manually.'); };
+document.getElementById('addFoodBtn').onclick=()=>{ const name=document.getElementById('foodName').value.trim(), qty=document.getElementById('foodQty').value.trim(), cals=Number(document.getElementById('foodCals').value), meal=document.getElementById('mealType').value; if(!name||!cals) return alert('Please enter food name and calories.'); day().food.push({name,qty,cals,meal}); ['foodName','foodQty','foodCals'].forEach(id=>document.getElementById(id).value=''); save(); renderAll(); };
+document.getElementById('estimateWorkoutBtn').onclick=()=>{ const mins=Number(document.getElementById('workoutMins').value||0); if(!mins) return alert('Enter minutes first.'); document.getElementById('workoutName').value ||= 'Walking'; document.getElementById('workoutCals').value=Math.round(mins*5); };
+document.getElementById('addWorkoutBtn').onclick=()=>{ const name=document.getElementById('workoutName').value.trim(), mins=Number(document.getElementById('workoutMins').value), cals=Number(document.getElementById('workoutCals').value), kind=document.getElementById('workoutType').value; if(!name||!cals) return alert('Please enter activity name and calories.'); day().workouts.push({name,mins,cals,kind}); ['workoutName','workoutMins','workoutCals'].forEach(id=>document.getElementById(id).value=''); save(); renderAll(); };
 
-document.getElementById('goalModal').addEventListener('show',()=>{
-  document.getElementById('maintenanceInput').value=app.profile.maintenance;
-  document.getElementById('lossInput').value=app.profile.lossPerWeek;
-  document.getElementById('plannedMoveInput').value=app.profile.plannedMove;
-});
-document.getElementById('saveGoalBtn').onclick=()=>{
-  app.profile.maintenance=Number(document.getElementById('maintenanceInput').value||2100);
-  app.profile.lossPerWeek=Number(document.getElementById('lossInput').value||1.5);
-  app.profile.plannedMove=Number(document.getElementById('plannedMoveInput').value||500);
-  save(); renderAll();
-};
-document.getElementById('saveBodyBtn').onclick=()=>{
-  const weight=document.getElementById('weightInput').value; const waist=document.getElementById('waistInput').value;
-  if(!weight && !waist) return alert('Enter weight or waist.');
-  day().body.push({weight,waist,time:new Date().toLocaleTimeString()}); document.getElementById('weightInput').value=''; document.getElementById('waistInput').value=''; save(); renderAll();
-};
+document.getElementById('goalModal').addEventListener('show',()=>{ document.getElementById('maintenanceInput').value=app.profile.maintenance||calculateMaintenance(); document.getElementById('lossInput').value=app.profile.lossPerWeek; document.getElementById('plannedMoveInput').value=app.profile.plannedMove; });
+document.getElementById('saveGoalBtn').onclick=()=>{ app.profile.maintenance=Number(document.getElementById('maintenanceInput').value||2100); app.profile.lossPerWeek=Number(document.getElementById('lossInput').value||1.5); app.profile.plannedMove=Number(document.getElementById('plannedMoveInput').value||500); save(); renderAll(); };
+document.getElementById('saveBodyBtn').onclick=()=>{ const weight=document.getElementById('weightInput').value, waist=document.getElementById('waistInput').value; if(!weight&&!waist) return alert('Enter weight or waist.'); day().body.push({weight,waist,time:new Date().toLocaleTimeString()}); document.getElementById('weightInput').value=''; document.getElementById('waistInput').value=''; save(); renderAll(); };
 
-formatDate(); renderAll();
+function fillProfileModal(){ document.getElementById('profileName').value=app.profile.name||''; document.getElementById('profileSex').value=app.profile.sex||'female'; document.getElementById('profileAge').value=app.profile.age||''; document.getElementById('profileUnit').value=app.profile.weightUnit||'lb'; document.getElementById('profileWeight').value=app.profile.weight||''; document.getElementById('profileHeightUnit').value=app.profile.heightUnit||'cm'; document.getElementById('profileHeightCm').value=app.profile.heightCm||''; document.getElementById('profileHeightFt').value=app.profile.heightFt||''; document.getElementById('profileHeightIn').value=app.profile.heightIn||''; document.getElementById('profileActivity').value=String(app.profile.activity||1.2); document.getElementById('profileLoss').value=String(app.profile.lossPerWeek||1.5); document.getElementById('profileMove').value=app.profile.plannedMove||500; toggleHeightMode(); updateProfileUI(); }
+function collectProfile(){ app.profile.name=document.getElementById('profileName').value.trim()||'Aileen'; app.profile.sex=document.getElementById('profileSex').value; app.profile.age=Number(document.getElementById('profileAge').value||0); app.profile.weightUnit=document.getElementById('profileUnit').value; app.profile.weight=Number(document.getElementById('profileWeight').value||0); app.profile.heightUnit=document.getElementById('profileHeightUnit').value; app.profile.heightCm=Number(document.getElementById('profileHeightCm').value||0); app.profile.heightFt=Number(document.getElementById('profileHeightFt').value||0); app.profile.heightIn=Number(document.getElementById('profileHeightIn').value||0); app.profile.activity=Number(document.getElementById('profileActivity').value||1.2); app.profile.lossPerWeek=Number(document.getElementById('profileLoss').value||1.5); app.profile.plannedMove=Number(document.getElementById('profileMove').value||500); app.profile.maintenance=calculateMaintenance(); if(!app.profile.startDate) app.profile.startDate=todayKey(); }
+function toggleHeightMode(){ const mode=document.getElementById('profileHeightUnit')?.value||'cm'; document.getElementById('heightCmLabel')?.classList.toggle('hidden',mode!=='cm'); document.getElementById('heightFtLabel')?.classList.toggle('hidden',mode!=='ftin'); }
+document.getElementById('profileModal').addEventListener('show',fillProfileModal); document.getElementById('profileHeightUnit').addEventListener('change',toggleHeightMode); document.getElementById('calcProfileBtn').onclick=()=>{ collectProfile(); updateProfileUI(); };
+document.getElementById('saveProfileBtn').onclick=()=>{ collectProfile(); if(!app.profile.age||!app.profile.weight||!heightCm()) return alert('Please enter age, weight, and height so the app can compute your calories.'); app.profile.configured=true; save(); renderAll(); };
+setTimeout(()=>{ if(!app.profile.configured) document.getElementById('profileModal').showModal(); },400);
+renderAll();
