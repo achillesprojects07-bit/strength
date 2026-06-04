@@ -1,22 +1,28 @@
-Calm Strength v1.4
+Calm Strength v1.2
+==================
+A mobile-first web app for injury-aware weight loss and no-grip training.
 
-Mobile web app for elbow-safe weight loss training.
+How to use:
+1. Open index.html in a browser or upload the whole folder to GitHub Pages.
+2. Set your profile first so calories can be calculated.
+3. Choose your elbow status every day.
+4. The app automatically generates a safe workout based on pain, week, and progression phase.
+5. Log food and movement to see food left, movement left, and live balance.
 
-New in v1.4:
-- Workout Preferences screen inside Train tab.
-- Choose coach focus: balanced, calorie burn, strength, recovery, or shorter workouts.
-- Choose preferred workout types from the available workout categories.
-- Mark favorite exercises to prioritize.
-- Mark available exercises to avoid/dislike.
-- Coach-selected workouts now respond to pain level AND preferences.
+Important:
+This app is not medical advice. Because gripping and elbow loading cause immediate pain, consult a qualified clinician/PT if symptoms persist, worsen, or include numbness/tingling.
 
-Core features:
-- Profile-based calorie budget.
-- Food calorie logger.
-- Movement calorie logger.
-- Green/Yellow/Red/Nerve elbow safety filter.
-- Coach Selected Workouts.
-- 16-week progression and anti-plateau trainer engine.
-- Local browser storage only.
 
-Open index.html or upload the whole folder to GitHub Pages.
+V1.5 updates:
+- Generate Today’s Safe Workout now jumps directly to the generated workout card.
+- Expanded food library with Filipino, Greek/travel, international, drinks, snacks, and custom foods.
+- Added Travel / Unknown Food Estimator for restaurant and overseas meals.
+- Added Save to My Foods and searchable Food Library.
+
+
+V1.6 update:
+- Added Online Food Calorie Lookup similar to the Greek app translation flow.
+- Search Google calories or USDA FoodData Central from the food entry screen.
+- Copy lookup text for any external calorie counter.
+- Enter the calories found, then Add Food or Save to My Foods.
+- This is a static GitHub Pages-safe approach and does not require API keys.

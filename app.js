@@ -1,11 +1,11 @@
-const STORAGE_KEY = 'calmStrength.v14';
+const STORAGE_KEY = 'calmStrength.v16';
 const todayKey = () => new Date().toISOString().slice(0,10);
-const old = JSON.parse(localStorage.getItem('calmStrength.v13') || localStorage.getItem('calmStrength.v11') || localStorage.getItem('calmStrength.v1') || '{}');
+const old = JSON.parse(localStorage.getItem('calmStrength.v15') || localStorage.getItem('calmStrength.v14') || localStorage.getItem('calmStrength.v12') || localStorage.getItem('calmStrength.v11') || localStorage.getItem('calmStrength.v1') || '{}');
 let app = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || {
   profile: old.profile || {name:'Aileen', sex:'female', age:0, weightUnit:'lb', weight:0, heightUnit:'cm', heightCm:0, heightFt:0, heightIn:0, activity:1.2, lossPerWeek:1.5, plannedMove:500, maintenance:2100, configured:false, startDate: todayKey()},
   days: old.days || {},
   trainer: {variation:0, filter:'all'},
-  preferences: old.preferences || {focus:'balanced', preferredCats:[], favoriteIds:[], avoidIds:[], maxMins:'any'}
+  customFoods: old.customFoods || []
 };
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
 function day(date=todayKey()){ if(!app.days[date]) app.days[date]={pain:'green', food:[], workouts:[], body:[], sessionDone:false, sessionKey:''}; return app.days[date]; }
@@ -20,13 +20,32 @@ function safetyRating(ideal=idealIntake()){ if(ideal < 1200) return ['Very aggre
 function formatDate(){ const now=new Date(); document.getElementById('dateText').textContent = now.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); document.getElementById('dayText').textContent = now.toLocaleDateString(undefined,{weekday:'long'}); document.getElementById('greeting').textContent = `Good morning, ${app.profile.name || 'Aileen'} 👋`; }
 
 const foodDb = {
-  'rice':{qty:'1 cup cooked',cals:200}, 'half cup rice':{qty:'1/2 cup cooked',cals:100}, 'egg':{qty:'1 pc',cals:80}, 'fried egg':{qty:'1 pc',cals:95},
-  'chicken breast':{qty:'100 g',cals:165}, 'chicken thigh':{qty:'1 medium pc',cals:220}, 'fish':{qty:'100 g',cals:130}, 'tuna':{qty:'1 small can',cals:120},
-  'tofu':{qty:'100 g',cals:90}, 'greek yogurt':{qty:'1 cup',cals:130}, 'banana':{qty:'1 medium',cals:105}, 'apple':{qty:'1 medium',cals:95},
-  'adobo':{qty:'1 serving',cals:350}, 'sinigang':{qty:'1 bowl',cals:300}, 'tinola':{qty:'1 bowl',cals:250}, 'pancit':{qty:'1 plate',cals:450},
-  'lumpia':{qty:'1 pc',cals:100}, 'pandesal':{qty:'1 pc',cals:120}, 'milk tea':{qty:'16 oz',cals:350}, '3-in-1 coffee':{qty:'1 sachet',cals:90},
-  'coke':{qty:'1 can',cals:140}, 'cafe latte':{qty:'12 oz',cals:180}
+  // Staples and portions
+  'rice':{qty:'1 cup cooked',cals:200,cat:'Staples'}, 'half cup rice':{qty:'1/2 cup cooked',cals:100,cat:'Staples'}, 'garlic rice':{qty:'1 cup',cals:280,cat:'Staples'}, 'brown rice':{qty:'1 cup cooked',cals:215,cat:'Staples'}, 'oats':{qty:'1 cup cooked',cals:155,cat:'Staples'}, 'bread':{qty:'1 slice',cals:80,cat:'Staples'}, 'pandesal':{qty:'1 pc',cals:120,cat:'Staples'}, 'pita':{qty:'1 medium',cals:170,cat:'Staples'}, 'potato':{qty:'1 medium',cals:160,cat:'Staples'}, 'sweet potato':{qty:'1 medium',cals:115,cat:'Staples'},
+  // Protein basics
+  'egg':{qty:'1 pc',cals:80,cat:'Protein'}, 'fried egg':{qty:'1 pc',cals:95,cat:'Protein'}, 'boiled egg':{qty:'1 pc',cals:78,cat:'Protein'}, 'chicken breast':{qty:'100 g',cals:165,cat:'Protein'}, 'chicken thigh':{qty:'1 medium pc',cals:220,cat:'Protein'}, 'roast chicken':{qty:'100 g',cals:190,cat:'Protein'}, 'fish':{qty:'100 g',cals:130,cat:'Protein'}, 'grilled fish':{qty:'100 g',cals:150,cat:'Protein'}, 'salmon':{qty:'100 g',cals:205,cat:'Protein'}, 'tuna':{qty:'1 small can',cals:120,cat:'Protein'}, 'tofu':{qty:'100 g',cals:90,cat:'Protein'}, 'greek yogurt':{qty:'1 cup',cals:130,cat:'Protein'}, 'pork chop':{qty:'100 g',cals:260,cat:'Protein'}, 'beef':{qty:'100 g cooked',cals:250,cat:'Protein'},
+  // Filipino meals
+  'adobo':{qty:'1 serving',cals:350,cat:'Filipino'}, 'chicken adobo':{qty:'1 serving',cals:320,cat:'Filipino'}, 'pork adobo':{qty:'1 serving',cals:430,cat:'Filipino'}, 'sinigang':{qty:'1 bowl',cals:300,cat:'Filipino'}, 'pork sinigang':{qty:'1 bowl',cals:420,cat:'Filipino'}, 'tinola':{qty:'1 bowl',cals:250,cat:'Filipino'}, 'nilaga':{qty:'1 bowl',cals:350,cat:'Filipino'}, 'paksiw':{qty:'1 serving',cals:220,cat:'Filipino'}, 'pinakbet':{qty:'1 serving',cals:180,cat:'Filipino'}, 'laing':{qty:'1 serving',cals:280,cat:'Filipino'}, 'kare-kare':{qty:'1 serving',cals:550,cat:'Filipino'}, 'bicol express':{qty:'1 serving',cals:520,cat:'Filipino'}, 'sisig':{qty:'1 plate',cals:650,cat:'Filipino'}, 'lechon kawali':{qty:'1 serving',cals:700,cat:'Filipino'}, 'liempo':{qty:'1 serving',cals:600,cat:'Filipino'}, 'inasal':{qty:'1 chicken leg quarter',cals:360,cat:'Filipino'}, 'bangus':{qty:'1 medium serving',cals:280,cat:'Filipino'}, 'tapsilog':{qty:'1 plate',cals:750,cat:'Filipino'}, 'longsilog':{qty:'1 plate',cals:800,cat:'Filipino'}, 'tocilog':{qty:'1 plate',cals:780,cat:'Filipino'}, 'pancit':{qty:'1 plate',cals:450,cat:'Filipino'}, 'lumpia':{qty:'1 pc',cals:100,cat:'Filipino'}, 'turón':{qty:'1 pc',cals:180,cat:'Filipino'}, 'turon':{qty:'1 pc',cals:180,cat:'Filipino'}, 'halo-halo':{qty:'1 serving',cals:500,cat:'Filipino'},
+  // Greek and Mediterranean travel
+  'greek salad':{qty:'1 bowl',cals:350,cat:'Greek/Travel'}, 'souvlaki':{qty:'1 skewer',cals:220,cat:'Greek/Travel'}, 'souvlaki pita':{qty:'1 wrap',cals:550,cat:'Greek/Travel'}, 'gyro':{qty:'1 pita wrap',cals:650,cat:'Greek/Travel'}, 'gyros':{qty:'1 pita wrap',cals:650,cat:'Greek/Travel'}, 'tzatziki':{qty:'2 tbsp',cals:60,cat:'Greek/Travel'}, 'moussaka':{qty:'1 serving',cals:550,cat:'Greek/Travel'}, 'spanakopita':{qty:'1 piece',cals:300,cat:'Greek/Travel'}, 'dolmades':{qty:'5 pcs',cals:180,cat:'Greek/Travel'}, 'feta':{qty:'30 g',cals:80,cat:'Greek/Travel'}, 'olives':{qty:'10 pcs',cals:60,cat:'Greek/Travel'}, 'hummus':{qty:'1/4 cup',cals:110,cat:'Greek/Travel'}, 'falafel':{qty:'3 pcs',cals:250,cat:'Greek/Travel'}, 'baklava':{qty:'1 piece',cals:300,cat:'Greek/Travel'}, 'gelato':{qty:'1 scoop',cals:180,cat:'Greek/Travel'},
+  // International travel basics
+  'pizza':{qty:'1 slice',cals:300,cat:'Travel'}, 'burger':{qty:'1 regular',cals:550,cat:'Travel'}, 'fries':{qty:'medium',cals:365,cat:'Travel'}, 'pasta tomato':{qty:'1 plate',cals:500,cat:'Travel'}, 'pasta cream':{qty:'1 plate',cals:750,cat:'Travel'}, 'sandwich':{qty:'1 regular',cals:450,cat:'Travel'}, 'croissant':{qty:'1 pc',cals:280,cat:'Travel'}, 'omelette':{qty:'2 eggs',cals:250,cat:'Travel'}, 'steak':{qty:'150 g',cals:400,cat:'Travel'}, 'caesar salad':{qty:'1 bowl',cals:500,cat:'Travel'}, 'sushi roll':{qty:'6 pcs',cals:300,cat:'Travel'}, 'ramen':{qty:'1 bowl',cals:600,cat:'Travel'}, 'pad thai':{qty:'1 plate',cals:700,cat:'Travel'}, 'fried rice':{qty:'1 plate',cals:650,cat:'Travel'}, 'curry':{qty:'1 bowl',cals:550,cat:'Travel'},
+  // Snacks, fruits, drinks
+  'banana':{qty:'1 medium',cals:105,cat:'Snacks'}, 'apple':{qty:'1 medium',cals:95,cat:'Snacks'}, 'orange':{qty:'1 medium',cals:62,cat:'Snacks'}, 'nuts':{qty:'1 small handful/28g',cals:170,cat:'Snacks'}, 'chips':{qty:'1 small bag',cals:160,cat:'Snacks'}, 'chocolate':{qty:'1 bar 40g',cals:220,cat:'Snacks'}, 'milk tea':{qty:'16 oz',cals:350,cat:'Drinks'}, '3-in-1 coffee':{qty:'1 sachet',cals:90,cat:'Drinks'}, 'coke':{qty:'1 can',cals:140,cat:'Drinks'}, 'juice':{qty:'1 glass',cals:120,cat:'Drinks'}, 'beer':{qty:'1 bottle/can',cals:150,cat:'Drinks'}, 'wine':{qty:'1 glass',cals:125,cat:'Drinks'}, 'cafe latte':{qty:'12 oz',cals:180,cat:'Drinks'}, 'americano':{qty:'1 cup',cals:10,cat:'Drinks'}, 'cappuccino':{qty:'1 cup',cals:120,cat:'Drinks'}
 };
+
+function allFoods(){ const custom={}; (app.customFoods||[]).forEach(f=>{ custom[f.name.toLowerCase()]={qty:f.qty,cals:Number(f.cals)||0,cat:'My Foods'}; }); return {...foodDb, ...custom}; }
+function findFoodEstimate(query){ const key=(query||'').trim().toLowerCase(); if(!key) return null; const db=allFoods(); if(db[key]) return {name:key,...db[key]}; const keys=Object.keys(db).sort((a,b)=>b.length-a.length); const found=keys.find(k=>key.includes(k) || k.includes(key)); return found ? {name:found,...db[found]} : null; }
+function travelEstimate(){
+  const type=document.getElementById('travelFoodType')?.value || 'mixed';
+  const portion=document.getElementById('travelPortion')?.value || 'regular';
+  const method=document.getElementById('travelMethod')?.value || 'standard';
+  const base={leanProtein:260, fattyProtein:420, ricePasta:420, breadWrap:480, salad:300, soup:280, dessert:350, drink:160, mixed:550}[type] || 550;
+  const portionFactor={small:.7, regular:1, large:1.35, shared:.5}[portion] || 1;
+  const methodAdd={standard:0, grilled:-40, saucy:90, fried:180, creamy:220, sugary:120}[method] || 0;
+  const mid=Math.max(40, Math.round(base*portionFactor + methodAdd));
+  return {low:Math.round(mid*.85), mid, high:Math.round(mid*1.15)};
+}
 
 const exercises = [
   {id:'walk-easy', cat:'Walking', title:'Easy Walk', mins:25, cals:125, safe:['green','yellow','red'], level:1, setup:'Comfortable pace. No hand weights. Do not grip treadmill rails.', prescription:'20–45 min easy.', stop:'Stop if dizziness, sharp pain, or you need to grip for support.'},
@@ -83,10 +102,7 @@ function phaseIndex(){ return Math.min(3, Math.floor((weekNumber()-1)/4)); }
 function dayIndex(){ return new Date().getDay(); }
 function painRules(){ const p=day().pain; if(p==='green') return {mode:'Train', intensity:'moderate', allowProgress:true, title:'Green Day — Train safely', note:'You can do today’s generated workout. Progress only one variable.'}; if(p==='yellow') return {mode:'Maintain', intensity:'light', allowProgress:false, title:'Yellow Day — Maintain, don’t push', note:'Workout changed to walking, recovery core, and mobility. No progression today.'}; if(p==='red') return {mode:'Recovery', intensity:'gentle', allowProgress:false, title:'Red Day — Recovery only', note:'No strength or calorie chasing. Gentle movement and mobility only.'}; return {mode:'Nerve Safety', intensity:'gentle', allowProgress:false, title:'Nerve symptoms — Avoid loading', note:'Avoid elbow loading and consider medical assessment if numbness/tingling continues.'}; }
 function byId(id){ return exercises.find(e=>e.id===id); }
-function prefs(){ if(!app.preferences) app.preferences={focus:'balanced', preferredCats:[], favoriteIds:[], avoidIds:[], maxMins:'any'}; return app.preferences; }
-function prefScore(e){ const pr=prefs(); let score=0; if((pr.preferredCats||[]).includes(e.cat)) score+=4; if((pr.favoriteIds||[]).includes(e.id)) score+=8; if(pr.focus==='weightloss' && ['Walking','Conditioning'].includes(e.cat)) score+=3; if(pr.focus==='strength' && e.cat==='Lower Body') score+=3; if(pr.focus==='recovery' && ['Core','Posture','Rehab'].includes(e.cat)) score+=3; if(pr.focus==='short' && e.mins<=10) score+=2; return score; }
-function allowedByPrefs(e){ const pr=prefs(); if((pr.avoidIds||[]).includes(e.id)) return false; if(pr.maxMins!=='any' && e.mins>Number(pr.maxMins)) return false; return true; }
-function choose(cat, pain, levelMax, count, offset=0){ const pool = exercises.filter(e=>e.cat===cat && e.safe.includes(pain) && e.level<=levelMax && allowedByPrefs(e)).sort((a,b)=>prefScore(b)-prefScore(a)); const out=[]; for(let i=0;i<count && pool.length;i++) out.push(pool[(i+offset)%pool.length]); return out; }
+function choose(cat, pain, levelMax, count, offset=0){ const pool = exercises.filter(e=>e.cat===cat && e.safe.includes(pain) && e.level<=levelMax); const out=[]; for(let i=0;i<count && pool.length;i++) out.push(pool[(i+offset)%pool.length]); return out; }
 function generateSession(variation=app.trainer.variation){ const p=day().pain; const rule=painRules(); const phase=phaseIndex(); const weekday=weeklyPattern[dayIndex()]; let levelMax = p==='green' ? Math.min(4, phase+1) : 1; let ex=[]; let title=weekday; let targetCals=Math.round((Number(app.profile.plannedMove)||500)*0.38);
   if(p==='red' || p==='nerve') { title = p==='nerve' ? 'Nerve-Safe Recovery' : 'Red Day Recovery'; ex=[byId('chair-cardio'), byId('pelvic-tilt'), byId('chin-tuck'), byId('scap-set'), byId('elbow-rom'), byId('hand-open')]; targetCals=70; }
   else if(p==='yellow') { title='Yellow Day Maintain'; ex=[...choose('Walking',p,1,1,variation), ...choose('Core',p,1,2,variation), ...choose('Posture',p,1,2,variation), ...choose('Rehab',p,1,2,variation)]; targetCals=120; }
@@ -103,124 +119,77 @@ function generateSession(variation=app.trainer.variation){ const p=day().pain; c
   ex=ex.filter(Boolean);
   const cals=Math.round(ex.reduce((a,e)=>a+(e.cals||0),0)); const mins=Math.round(ex.reduce((a,e)=>a+(e.mins||0),0));
   return {title, rule, phase:phases[phase], week:weekNumber(), ex, cals: Math.max(cals,targetCals), mins, weekday}; }
-
-function buildSessionFromExerciseIds(title, ids, targetCals, note, badge){
-  const p=day().pain; const rule=painRules(); const phase=phases[phaseIndex()];
-  let ex=ids.map(byId).filter(Boolean).filter(e=>e.safe.includes(p) && allowedByPrefs(e)); if(!ex.length) ex=ids.map(byId).filter(Boolean).filter(e=>e.safe.includes(p));
-  const cals=Math.max(Math.round(ex.reduce((a,e)=>a+(e.cals||0),0)), targetCals||0);
-  const mins=Math.round(ex.reduce((a,e)=>a+(e.mins||0),0));
-  return {title, rule, phase, week:weekNumber(), ex, cals, mins, note, badge};
-}
-function cloneSession(base, patch={}){ return Object.assign({}, base, patch); }
-function coachOptions(){
-  const p=day().pain; const planned=Number(app.profile.plannedMove)||500; const phase=phaseIndex(); const main=generateSession(app.trainer.variation); const pr=prefs();
-  if(p==='nerve'){
-    return [
-      buildSessionFromExerciseIds('Nerve-Safe Reset', ['chair-cardio','pelvic-tilt','chin-tuck','scap-set','elbow-rom','hand-open'], 55, 'Best choice: stop loading and keep the body moving gently while monitoring numbness/tingling.', 'Best / safest'),
-      buildSessionFromExerciseIds('Gentle Walk + Mobility', ['walk-easy','elbow-rom','forearm-rotate','wrist-rom','hand-open'], 80, 'Only if walking feels comfortable. No gripping, no rails, no elbow strengthening.', 'Gentle move'),
-      buildSessionFromExerciseIds('Food-Budget Recovery Day', ['pelvic-tilt','supine-march','chin-tuck','hand-open'], 35, 'Lowest elbow demand. Use food budget today instead of chasing burn.', 'Recovery')
-    ];
-  }
-  if(p==='red'){
-    return [
-      buildSessionFromExerciseIds('Red Day Recovery', ['chair-cardio','pelvic-tilt','supine-march','chin-tuck','elbow-rom','hand-open'], 60, 'Best choice: recovery only. No calorie chasing, no progression.', 'Best / safest'),
-      buildSessionFromExerciseIds('Easy Walk if Comfortable', ['walk-easy','forearm-rotate','wrist-rom','hand-open'], 90, 'Use this only if walking does not make you tense or grip for balance.', 'Gentle move'),
-      buildSessionFromExerciseIds('Mobility Only', ['pelvic-tilt','chin-tuck','scap-set','elbow-rom','hand-open'], 30, 'Choose this if even easy movement feels like too much today.', 'Minimum effective')
-    ];
-  }
-  if(p==='yellow'){
-    return [
-      cloneSession(main, {title:'Coach Pick: Maintain Day', badge:'Best choice', note:'Pain is Yellow, so the app removes progression and prioritizes walking, recovery core, and mobility.'}),
-      buildSessionFromExerciseIds('Easier Option: Recovery Core + Walk', ['walk-easy','supine-march','heel-taps','pelvic-tilt','chin-tuck','elbow-rom'], 120, 'Choose this if energy is low or your elbows are sensitive today.', 'Easier'),
-      buildSessionFromExerciseIds('Calorie Option: Split Walk Day', ['split-walk','chair-cardio','elbow-rom','hand-open'], Math.round(planned*0.45), 'Most movement calories with low elbow demand. Keep pace easy; no intervals.', 'Calorie-focused')
-    ];
-  }
-  if(pr.focus==='weightloss') return [
-    cloneSession(main, {title:'Coach Pick: Preference-Aware Plan', badge:'Best choice', note:'Built from today’s safety status plus your preference for calorie-focused movement.'}),
-    buildSessionFromExerciseIds('Preferred Burn: Walk + Step-Touch', ['walk-brisk','step-touch','indoor-march','low-step','elbow-rom'], Math.round(planned*0.6), 'Prioritizes walking and conditioning because you selected weight-loss focus.', 'Calorie-focused'),
-    buildSessionFromExerciseIds('Lower-Impact Burn: Split Walk Day', ['split-walk','chair-cardio','standing-abduction','calf','hand-open'], Math.round(planned*0.5), 'A lower-elbow-demand calorie option that avoids gripping and arm loading.', 'Easier burn')
-  ];
-  if(pr.focus==='recovery') return [
-    cloneSession(main, {title:'Coach Pick: Recovery-Biased Plan', badge:'Best choice', note:'The coach is prioritizing low-irritation work because you selected recovery preference.'}),
-    buildSessionFromExerciseIds('Recovery Core + Mobility', ['walk-easy','supine-march','heel-taps','pelvic-tilt','chin-tuck','scap-set','elbow-rom'], 120, 'Keeps you moving while reducing flare risk.', 'Recovery'),
-    buildSessionFromExerciseIds('Gentle Lower Body', ['sit-stand','glute-bridge','side-leg','seated-leg-ext','calf','hand-open'], 130, 'A simple strength option without gripping or elbow loading.', 'Gentle strength')
-  ];
-  const strengthIds = phase>=2 ? ['slow-sit-stand','wall-squat-pulse','bridge-hold','stepup','calf','deadbug-legs','scap-set','elbow-iso'] : ['sit-stand','wall-squat','glute-bridge','standing-abduction','calf','heel-taps','scap-set','elbow-rom'];
-  return [
-    cloneSession(main, {title:'Coach Pick: Today’s Best Plan', badge:'Best choice', note:'This is the app-selected plan based on today’s day, week, phase, and pain level.'}),
-    buildSessionFromExerciseIds('Strength Option: Lower Body Build', strengthIds, 170+phase*30, 'Choose this if you want muscle-building without gripping or arm weight-bearing.', 'Strength'),
-    buildSessionFromExerciseIds('Calorie Option: Walk + Low Impact Burn', ['walk-brisk','step-touch','indoor-march','sit-stand','glute-bridge','elbow-rom'], Math.round(planned*0.55), 'Choose this when food is tight and you want more burn without elbow stress.', 'Calorie-focused')
-  ];
-}
-function renderCoachOptions(){
-  const opts=coachOptions();
-  const html=opts.map((s,i)=>`<div class="coach-card ${i===0?'featured':''}"><div class="coach-top"><span class="tag ${i===0?'green':'blue'}">${s.badge||'Option'}</span><span class="tag">${s.mins} min · ${s.cals} cal est.</span></div><h4>${s.title}</h4><p>${s.note||s.rule.note}</p><div class="mini-exercises">${s.ex.slice(0,5).map(e=>`<span>${e.title}</span>`).join('')}</div><div class="helper-row"><button data-coach-add="${i}">Use this workout</button><button class="secondary" data-coach-preview="${i}">Preview</button></div></div>`).join('');
-  ['coachOptionsToday','coachOptionsTrain'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=html; });
-  document.querySelectorAll('[data-coach-add]').forEach(btn=>btn.onclick=()=>addCoachOption(Number(btn.dataset.coachAdd)));
-  document.querySelectorAll('[data-coach-preview]').forEach(btn=>btn.onclick=()=>previewCoachOption(Number(btn.dataset.coachPreview)));
-}
-function previewCoachOption(i){
-  const s=coachOptions()[i] || coachOptions()[0];
-  document.getElementById('generatedWorkout').innerHTML=`<div class="trainer-hero"><h3>${s.title}</h3><p>${s.note||s.phase.focus}</p><div class="trainer-meta"><span class="tag green">${s.cals} cal est.</span><span class="tag">${s.mins} min</span><span class="tag blue">${s.phase.name}</span><span class="tag warn">${s.badge||'Coach option'}</span></div></div>${s.ex.map(e=>exerciseRow(e)).join('')}<div class="helper-row"><button id="addPreviewedCoach">Use this workout</button><button class="secondary" data-tab="today">Back to Today</button></div>`;
-  document.getElementById('addPreviewedCoach').onclick=()=>addCoachOption(i);
-  document.querySelectorAll('#generatedWorkout [data-tab]').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
-  switchTab('train');
-}
-function addCoachOption(i){
-  const s=coachOptions()[i] || coachOptions()[0];
-  day().workouts.push({name:`Coach: ${s.title}`, mins:s.mins, cals:s.cals, kind:s.badge || 'Coach Selected'});
-  day().sessionDone=true;
-  day().sessionKey=`${todayKey()}-coach-${i}-${app.trainer.variation}`;
-  save(); renderAll(); switchTab('today');
-}
 function progressionCue(){ const phase=phaseIndex(); if(day().pain!=='green') return 'No progression today. Maintain or recover.'; return ['Add 1–2 reps only if no next-day flare.','Add one small set to one exercise only.','Use slower 3-second lowering or holds.','Use circuit flow or slightly shorter rest.'][phase]; }
 
 function updatePainUI(){ const p=day().pain; document.querySelectorAll('.pain-option').forEach(b=>b.classList.toggle('selected',b.dataset.pain===p)); const m={green:['🛡️','Green day detected','You can train safely today. The app will still avoid gripping and elbow loading.'],yellow:['⚠️','Yellow day detected','Maintain only. The app will avoid progression and choose light movement.'],red:['🛑','Red day detected','Recovery only. Do not chase calorie burn today.'],nerve:['⚡','Nerve symptoms selected','Avoid loading. Consider medical assessment if numbness or tingling persists.']}[p]; document.getElementById('painBanner').innerHTML=`<span>${m[0]}</span><p><strong>${m[1]}</strong> — ${m[2]}</p>`; }
 function updateBudget(){ const ideal=idealIntake(), food=sum(day().food), move=sum(day().workouts), planned=Number(app.profile.plannedMove)||500; const foodLeft=ideal-food, moveLeft=planned-move; document.getElementById('idealCalories').textContent=app.profile.configured?ideal:'—'; document.getElementById('idealSubtitle').textContent=app.profile.configured?'based on your goal + movement plan':'set profile first'; document.getElementById('foodLogged').textContent=food; document.getElementById('moveDone').textContent=move; document.getElementById('foodBudgetSmall').textContent=ideal; document.getElementById('moveTargetSmall').textContent=planned; document.getElementById('moveBudgetSmall').textContent=planned; document.getElementById('foodLeft').textContent=foodLeft>=0?`${foodLeft} cal left`:`${Math.abs(foodLeft)} cal over`; document.getElementById('moveLeft').textContent=moveLeft>0?`${moveLeft} cal left`:'Workout goal complete'; document.getElementById('foodRing').style.setProperty('--p',Math.min(100, food/ideal*100)); document.getElementById('moveRing').style.setProperty('--p',Math.min(100, move/planned*100)); document.getElementById('sumFood').textContent=food; document.getElementById('sumMove').textContent=move; document.getElementById('sumIdeal').textContent=ideal; document.getElementById('sumPain').textContent=day().pain;
   const balanceTitle=document.getElementById('balanceTitle'), balanceIcon=document.getElementById('balanceIcon'), note=document.getElementById('balanceNote'); const painful=day().pain==='red'||day().pain==='nerve'; if(!app.profile.configured){balanceTitle.textContent='Set Profile'; balanceIcon.textContent='👤'; note.textContent='Enter your information so the app can calculate your ideal intake.';} else if(foodLeft>=300 && moveLeft<=0){balanceTitle.textContent='Great Balance'; balanceIcon.textContent='✅'; note.textContent=`Movement goal is complete and you still have ${foodLeft} food calories left.`;} else if(foodLeft>=0 && moveLeft>0){balanceTitle.textContent='On Track'; balanceIcon.textContent='✅'; note.textContent=`You have ${foodLeft} calories left. Complete ${moveLeft} more safe movement calories to support today’s budget.`;} else if(foodLeft<0 && moveLeft>0 && !painful){balanceTitle.textContent='Recoverable'; balanceIcon.textContent='🎯'; note.textContent=`You are ${Math.abs(foodLeft)} calories over food target, but still have movement left. Choose safe walking, not elbow-loading exercise.`;} else if(foodLeft<0 && painful){balanceTitle.textContent='Over Target — Protect Elbows'; balanceIcon.textContent='🛑'; note.textContent=`You are ${Math.abs(foodLeft)} calories over, but today is not a day to punish-train. Use the weekly bank.`;} else {balanceTitle.textContent='Tight but Okay'; balanceIcon.textContent='⚠️'; note.textContent='Keep the next meal controlled. Do not add painful exercise.';} }
-function renderPreferences(){
-  const el=document.getElementById('preferencesPanel'); if(!el) return; const pr=prefs();
-  const cats=[...new Set(exercises.map(e=>e.cat))];
-  const favoriteChoices=exercises.filter(e=>['Walking','Conditioning','Lower Body','Core'].includes(e.cat)).slice(0,28);
-  const avoidChoices=exercises.slice(0,42);
-  const chip=(type,e)=>`<label class="pref-chip"><input type="checkbox" data-pref-${type}="${e.id}" ${(pr[type+'Ids']||[]).includes(e.id)?'checked':''}>${e.title}</label>`;
-  el.innerHTML=`<div class="pref-summary"><b>Current coach bias:</b> ${pr.focus||'balanced'} · Preferred types: ${(pr.preferredCats||[]).join(', ')||'none'} · Favorites: ${(pr.favoriteIds||[]).length} · Avoid: ${(pr.avoidIds||[]).length}</div>
-  <div class="pref-block"><h4>Coach focus</h4><div class="pref-select-row"><label>Main priority<select id="prefFocus"><option value="balanced">Balanced</option><option value="weightloss">More calorie burn</option><option value="strength">More muscle/strength</option><option value="recovery">More recovery-safe</option><option value="short">Shorter workouts</option></select></label><label>Max exercise block length<select id="prefMaxMins"><option value="any">Any safe length</option><option value="10">10 min or less</option><option value="15">15 min or less</option><option value="25">25 min or less</option></select></label></div></div>
-  <div class="pref-block"><h4>Preferred workout types</h4><div class="pref-grid">${cats.map(c=>`<label class="pref-chip"><input type="checkbox" data-pref-cat="${c}" ${(pr.preferredCats||[]).includes(c)?'checked':''}>${c}</label>`).join('')}</div></div>
-  <div class="pref-block"><h4>Favorite exercises to prioritize</h4><div class="pref-grid">${favoriteChoices.map(e=>chip('favorite',e)).join('')}</div></div>
-  <div class="pref-block"><h4>Avoid / dislike exercises</h4><p class="hint">Use this for exercises that are technically safe but you dislike or cannot tolerate. Red-flag unsafe exercises are already blocked.</p><div class="pref-grid">${avoidChoices.map(e=>chip('avoid',e)).join('')}</div></div>`;
-  document.getElementById('prefFocus').value=pr.focus||'balanced'; document.getElementById('prefMaxMins').value=pr.maxMins||'any';
-}
-function renderTrainer(){ const s=generateSession(); document.getElementById('trainerHero').innerHTML=`<h3>${s.rule.title}</h3><p>${s.rule.note}</p><div class="trainer-meta"><span class="tag green">Week ${s.week}</span><span class="tag blue">${s.phase.name}</span><span class="tag">${s.title}</span><span class="tag warn">${s.cals} cal est.</span><span class="tag">${s.mins} min total</span></div><p><b>Progression:</b> ${progressionCue()}</p>`; document.getElementById('todaySession').innerHTML=s.ex.slice(0,7).map(e=>exerciseRow(e)).join(''); document.getElementById('generatorSummary').innerHTML=`<p><b>Today’s mode:</b> ${s.rule.mode}</p><p><b>Chosen plan:</b> ${s.title} · ${s.phase.name} · Week ${s.week}</p><p><b>Why:</b> Pain status is ${day().pain}. ${s.rule.note}</p><p><b>Coach options:</b> The app now gives a best plan, easier option, and calorie-focused option when safe.</p>`; renderGeneratedWorkout(); renderCoachOptions(); }
+function renderTrainer(){ const s=generateSession(); document.getElementById('trainerHero').innerHTML=`<h3>${s.rule.title}</h3><p>${s.rule.note}</p><div class="trainer-meta"><span class="tag green">Week ${s.week}</span><span class="tag blue">${s.phase.name}</span><span class="tag">${s.title}</span><span class="tag warn">${s.cals} cal est.</span><span class="tag">${s.mins} min total</span></div><p><b>Progression:</b> ${progressionCue()}</p>`; document.getElementById('todaySession').innerHTML=s.ex.slice(0,7).map(e=>exerciseRow(e)).join(''); document.getElementById('generatorSummary').innerHTML=`<p><b>Today’s mode:</b> ${s.rule.mode}</p><p><b>Chosen plan:</b> ${s.title} · ${s.phase.name} · Week ${s.week}</p><p><b>Why:</b> Pain status is ${day().pain}. ${s.rule.note}</p>`; renderGeneratedWorkout(); }
 function exerciseRow(e){ return `<div class="exercise-row"><div><h4>${e.title}</h4><p>${e.prescription}<small>${e.setup}<br><b>Stop rule:</b> ${e.stop}</small></p></div><span class="tag">${e.mins} min · ${e.cals} cal</span></div>`; }
 function renderGeneratedWorkout(){ const s=generateSession(); document.getElementById('generatedWorkout').innerHTML=`<div class="trainer-hero"><h3>${s.title}</h3><p>${s.phase.focus}</p><div class="trainer-meta"><span class="tag green">${s.cals} cal est.</span><span class="tag">${s.mins} min</span><span class="tag blue">${s.phase.name}</span></div></div>${s.ex.map(e=>exerciseRow(e)).join('')}<div class="helper-row"><button id="addGeneratedInside">Add this workout to today</button><button class="secondary" id="markSessionDone">Mark done, no calorie add</button></div>`; document.getElementById('addGeneratedInside').onclick=addRecommended; document.getElementById('markSessionDone').onclick=()=>{ day().sessionDone=true; save(); renderAll(); alert('Session marked complete.'); }; }
 function renderPlan(){ const p=day().pain, s=generateSession(); let items=[]; if(p==='green') items=[['🚶','Move',`${Number(app.profile.plannedMove)||500} cal target`,`Suggested: ${s.title}`],['🦵','Strength',s.phase.name,progressionCue()],['💜','Rehab','Elbow mobility','Pain-free only'],['🍴','Food Focus','Stay within budget','Protein each meal']]; else if(p==='yellow') items=[['🚶','Move','Easy walk','No intense intervals'],['🧘','Recovery Core','Back/seated only','No planks'],['💜','Rehab','Mobility only','No progression'],['🍴','Food Focus','Control dinner','Do not chase burn']]; else items=[['🌿','Recover','Gentle walk only','If comfortable'],['🪑','Chair Cardio','Optional easy','No calorie chasing'],['💜','Rehab','Gentle ROM','No isometrics'],['🍴','Food Focus','Use food budget','Weekly bank ok']]; document.getElementById('todayPlan').innerHTML=items.map(x=>`<div class="plan-item"><span>${x[0]}</span><div><strong>${x[1]}</strong><p>${x[2]}<br><small>${x[3]}</small></p></div></div>`).join(''); }
 function renderEntries(){ const entries=[...day().food.map((x,i)=>({...x,type:'food',i})),...day().workouts.map((x,i)=>({...x,type:'workout',i}))]; document.getElementById('entryList').innerHTML=entries.length?entries.map(e=>`<div class="entry"><div><strong>${e.type==='food'?'🍏':'👟'} ${e.name}</strong><small>${e.qty || (e.mins||0)+' min'} · ${e.meal || e.kind} · ${e.cals} cal</small></div><button data-deltype="${e.type}" data-delindex="${e.i}">Delete</button></div>`).join(''):'<p class="hint">No entries yet today.</p>'; document.querySelectorAll('[data-deltype]').forEach(btn=>btn.onclick=()=>{ const arr=btn.dataset.deltype==='food'?day().food:day().workouts; arr.splice(Number(btn.dataset.delindex),1); save(); renderAll(); }); }
-function renderLibrary(){ document.getElementById('foodLibrary').innerHTML=Object.entries(foodDb).map(([name,v])=>`<div class="library-food"><strong>${name}</strong><span>${v.qty} · ${v.cals} cal</span></div>`).join(''); const cats=['all',...new Set(exercises.map(e=>e.cat))]; document.getElementById('workoutFilters').innerHTML=cats.map(c=>`<button class="${app.trainer.filter===c?'active':''}" data-filter="${c}">${c}</button>`).join(''); document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{ app.trainer.filter=b.dataset.filter; save(); renderLibrary(); }); const filter=app.trainer.filter; document.getElementById('exerciseLibrary').innerHTML=exercises.filter(e=>filter==='all'||e.cat===filter).map(e=>`<div class="library-card"><h4>${e.title}</h4><p>${e.prescription}</p><div class="trainer-meta"><span class="tag">${e.cat}</span><span class="tag green">Level ${e.level}</span><span class="tag">${e.mins} min</span><span class="tag warn">${e.safe.join(', ')}</span></div><p class="hint"><b>Setup:</b> ${e.setup}<br><b>Stop:</b> ${e.stop}</p></div>`).join(''); }
+function renderLibrary(){ const q=(document.getElementById('foodSearch')?.value||'').toLowerCase(); const foodEntries=Object.entries(allFoods()).filter(([name,v])=>!q || name.includes(q) || (v.cat||'').toLowerCase().includes(q)); document.getElementById('foodLibrary').innerHTML=foodEntries.map(([name,v])=>`<div class="library-food"><strong>${name}</strong><span>${v.qty} · ${v.cals} cal · ${v.cat||'Food'}</span><button class="secondary tiny" data-foodpick="${name.replace(/"/g,'&quot;')}">Use</button></div>`).join('') || '<p class="hint">No match. Use Travel Estimate or save it as a custom food.</p>'; document.querySelectorAll('[data-foodpick]').forEach(btn=>btn.onclick=()=>{ const f=allFoods()[btn.dataset.foodpick]; switchTab('log'); document.getElementById('foodName').value=btn.dataset.foodpick; document.getElementById('foodQty').value=f.qty; document.getElementById('foodCals').value=f.cals; setTimeout(()=>document.getElementById('foodName').scrollIntoView({behavior:'smooth',block:'center'}),100); }); const cats=['all',...new Set(exercises.map(e=>e.cat))]; document.getElementById('workoutFilters').innerHTML=cats.map(c=>`<button class="${app.trainer.filter===c?'active':''}" data-filter="${c}">${c}</button>`).join(''); document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{ app.trainer.filter=b.dataset.filter; save(); renderLibrary(); }); const filter=app.trainer.filter; document.getElementById('exerciseLibrary').innerHTML=exercises.filter(e=>filter==='all'||e.cat===filter).map(e=>`<div class="library-card"><h4>${e.title}</h4><p>${e.prescription}</p><div class="trainer-meta"><span class="tag">${e.cat}</span><span class="tag green">Level ${e.level}</span><span class="tag">${e.mins} min</span><span class="tag warn">${e.safe.join(', ')}</span></div><p class="hint"><b>Setup:</b> ${e.setup}<br><b>Stop:</b> ${e.stop}</p></div>`).join(''); }
 function renderPhaseMap(){ const ix=phaseIndex(); document.getElementById('phaseMap').innerHTML=phases.map((p,i)=>`<div class="phase ${i===ix?'active':''}"><strong>${p.name}</strong><p>Weeks ${p.weeks}</p><small>${p.focus}<br><b>${p.progress}</b></small></div>`).join(''); }
 function renderBody(){ const hist=Object.entries(app.days).flatMap(([date,d])=>(d.body||[]).map(b=>({...b,date}))).slice(-10).reverse(); document.getElementById('bodyHistory').innerHTML=hist.length?hist.map(b=>`<div class="entry"><div><strong>${b.date}</strong><small>Weight: ${b.weight||'—'} · Waist: ${b.waist||'—'}</small></div></div>`).join(''):'<p class="hint">No body check-ins yet.</p>'; const trend=Object.entries(app.days).slice(-14).reverse().map(([date,d])=>`<div class="entry"><div><strong>${date}</strong><small>Pain: ${d.pain} · Food ${sum(d.food)} cal · Movement ${sum(d.workouts)} cal · ${d.sessionDone?'session done':'session not marked'}</small></div></div>`).join(''); document.getElementById('trainingTrend').innerHTML=trend||'<p class="hint">No trend yet.</p>'; }
 function updateProfileUI(){ document.getElementById('setupCard').style.display=app.profile.configured?'none':'block'; document.getElementById('profileStatus').textContent=app.profile.configured?'Profile Set':'Set Profile'; const ideal=idealIntake(), rating=safetyRating(ideal); const preview=document.getElementById('profileCalcPreview'); if(preview) preview.innerHTML=`Estimated maintenance: <b>${app.profile.maintenance||calculateMaintenance()}</b> cal/day<br>Target daily deficit: <b>${targetDeficit()}</b> cal/day<br>Ideal intake with planned movement: <b>${ideal}</b> cal/day<br>Safety rating: <b>${rating[0]}</b> — ${rating[1]}`; }
 function renderAll(){ formatDate(); updateProfileUI(); updatePainUI(); updateBudget(); renderTrainer(); renderPlan(); renderEntries(); renderLibrary(); renderPhaseMap(); renderBody(); }
 function switchTab(tab){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(tab+'Screen').classList.add('active'); document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab)); window.scrollTo({top:0,behavior:'smooth'}); }
+function openGeneratedWorkout(){ renderTrainer(); switchTab('train'); setTimeout(()=>{ const el=document.getElementById('generatedWorkoutCard') || document.getElementById('generatedWorkout'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); },120); }
 function addRecommended(){ const s=generateSession(); day().workouts.push({name:`Generated: ${s.title}`, mins:s.mins, cals:s.cals, kind:'Generated Workout'}); day().sessionDone=true; day().sessionKey=`${todayKey()}-${app.trainer.variation}`; save(); renderAll(); switchTab('today'); }
 
+function lookupFoodQuery(){
+  const name=(document.getElementById('foodName')?.value||'').trim();
+  const qty=(document.getElementById('foodQty')?.value||'').trim();
+  const q=[qty,name,'calories'].filter(Boolean).join(' ').trim();
+  return q || 'food calories';
+}
+function updateOnlineLookupResult(){
+  const box=document.getElementById('onlineLookupResult');
+  if(!box) return;
+  const q=lookupFoodQuery();
+  box.innerHTML=`Search text: <b>${q}</b><br><small>After checking online, enter calories above, then tap Add Food or Save to My Foods.</small>`;
+}
+function openOnlineFoodLookup(type='google'){
+  const q=lookupFoodQuery();
+  const url = type==='usda'
+    ? `https://fdc.nal.usda.gov/fdc-app.html#/?query=${encodeURIComponent(q.replace(/calories/ig,'').trim())}`
+    : `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+  window.open(url, '_blank', 'noopener,noreferrer');
+  updateOnlineLookupResult();
+}
+async function copyLookupText(){
+  const q=lookupFoodQuery();
+  try{ await navigator.clipboard.writeText(q); document.getElementById('onlineLookupResult').innerHTML=`Copied: <b>${q}</b><br><small>Paste this into any calorie counter, then enter calories above.</small>`; }
+  catch(e){ prompt('Copy this search text:', q); }
+}
+
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+document.querySelectorAll('[data-open-generated]').forEach(b=>b.addEventListener('click',openGeneratedWorkout));
 document.querySelectorAll('.pain-option').forEach(b=>b.addEventListener('click',()=>{ day().pain=b.dataset.pain; save(); renderAll(); }));
 document.querySelectorAll('[data-modal]').forEach(b=>b.addEventListener('click',()=>{ const m=document.getElementById(b.dataset.modal); if(m) m.showModal(); }));
 document.querySelector('[data-action="openFood"]').onclick=()=>switchTab('log'); document.querySelector('[data-action="openWorkout"]').onclick=()=>switchTab('log');
 document.getElementById('refreshPlanBtn').onclick=()=>{ app.trainer.variation=(app.trainer.variation+1)%7; save(); renderAll(); };
-document.getElementById('generateBtn').onclick=()=>{ renderTrainer(); switchTab('train'); };
+document.getElementById('generateBtn').onclick=openGeneratedWorkout;
 document.getElementById('nextVarBtn').onclick=()=>{ app.trainer.variation=(app.trainer.variation+1)%7; save(); renderAll(); };
 document.getElementById('addRecommendedBtn').onclick=addRecommended;
-const savePrefsBtn=document.getElementById('savePrefsBtn');
-if(savePrefsBtn) savePrefsBtn.onclick=()=>{ const pr=prefs(); pr.focus=document.getElementById('prefFocus')?.value||'balanced'; pr.maxMins=document.getElementById('prefMaxMins')?.value||'any'; pr.preferredCats=[...document.querySelectorAll('[data-pref-cat]:checked')].map(x=>x.dataset.prefCat); pr.favoriteIds=[...document.querySelectorAll('[data-pref-favorite]:checked')].map(x=>x.dataset.prefFavorite); pr.avoidIds=[...document.querySelectorAll('[data-pref-avoid]:checked')].map(x=>x.dataset.prefAvoid); save(); renderAll(); alert('Workout preferences saved. Coach-selected workouts updated.'); };
-const clearPrefsBtn=document.getElementById('clearPrefsBtn');
-if(clearPrefsBtn) clearPrefsBtn.onclick=()=>{ app.preferences={focus:'balanced', preferredCats:[], favoriteIds:[], avoidIds:[], maxMins:'any'}; save(); renderAll(); };
 
-document.getElementById('estimateFoodBtn').onclick=()=>{ const key=document.getElementById('foodName').value.trim().toLowerCase(); const found=Object.keys(foodDb).find(k=>key.includes(k)); if(found){document.getElementById('foodQty').value=foodDb[found].qty; document.getElementById('foodCals').value=foodDb[found].cals;} else alert('No estimate found yet. Enter calories manually.'); };
+document.getElementById('estimateFoodBtn').onclick=()=>{ const key=document.getElementById('foodName').value.trim(); const found=findFoodEstimate(key); if(found){document.getElementById('foodName').value=found.name; document.getElementById('foodQty').value=found.qty; document.getElementById('foodCals').value=found.cals;} else alert('No exact match yet. Use Travel Estimate or enter calories manually, then save it to My Foods.'); };
+
+document.getElementById('onlineFoodBtn')?.addEventListener('click',()=>openOnlineFoodLookup('google'));
+document.getElementById('googleCaloriesBtn')?.addEventListener('click',()=>openOnlineFoodLookup('google'));
+document.getElementById('usdaCaloriesBtn')?.addEventListener('click',()=>openOnlineFoodLookup('usda'));
+document.getElementById('copyLookupBtn')?.addEventListener('click',copyLookupText);
+['foodName','foodQty'].forEach(id=>document.getElementById(id)?.addEventListener('input',updateOnlineLookupResult));
+
 document.getElementById('addFoodBtn').onclick=()=>{ const name=document.getElementById('foodName').value.trim(), qty=document.getElementById('foodQty').value.trim(), cals=Number(document.getElementById('foodCals').value), meal=document.getElementById('mealType').value; if(!name||!cals) return alert('Please enter food name and calories.'); day().food.push({name,qty,cals,meal}); ['foodName','foodQty','foodCals'].forEach(id=>document.getElementById(id).value=''); save(); renderAll(); };
 document.getElementById('estimateWorkoutBtn').onclick=()=>{ const mins=Number(document.getElementById('workoutMins').value||0); if(!mins) return alert('Enter minutes first.'); document.getElementById('workoutName').value ||= 'Walking'; document.getElementById('workoutCals').value=Math.round(mins*5); };
 document.getElementById('addWorkoutBtn').onclick=()=>{ const name=document.getElementById('workoutName').value.trim(), mins=Number(document.getElementById('workoutMins').value), cals=Number(document.getElementById('workoutCals').value), kind=document.getElementById('workoutType').value; if(!name||!cals) return alert('Please enter activity name and calories.'); day().workouts.push({name,mins,cals,kind}); ['workoutName','workoutMins','workoutCals'].forEach(id=>document.getElementById(id).value=''); save(); renderAll(); };
+
+
+document.getElementById('travelEstimateBtn')?.addEventListener('click',()=>{ const est=travelEstimate(); document.getElementById('travelEstimateResult').innerHTML=`Estimated range: <b>${est.low}–${est.high} cal</b> · midpoint <b>${est.mid} cal</b><br><small>Travel estimates are intentionally ranges. Use high estimate for fried/creamy/large restaurant portions.</small>`; document.getElementById('foodCals').value=est.mid; document.getElementById('foodQty').value=document.getElementById('travelPortion').value + ' travel portion'; if(!document.getElementById('foodName').value.trim()) document.getElementById('foodName').value='Travel meal estimate'; });
+document.getElementById('saveCustomFoodBtn')?.addEventListener('click',()=>{ const name=document.getElementById('foodName').value.trim(); const qty=document.getElementById('foodQty').value.trim()||'1 serving'; const cals=Number(document.getElementById('foodCals').value); if(!name||!cals) return alert('Enter food name and calories first.'); app.customFoods=app.customFoods||[]; const existing=app.customFoods.findIndex(f=>f.name.toLowerCase()===name.toLowerCase()); const item={name,qty,cals}; if(existing>=0) app.customFoods[existing]=item; else app.customFoods.push(item); save(); renderLibrary(); alert('Saved to My Foods.'); });
+document.getElementById('foodSearch')?.addEventListener('input',renderLibrary);
 
 document.getElementById('goalModal').addEventListener('show',()=>{ document.getElementById('maintenanceInput').value=app.profile.maintenance||calculateMaintenance(); document.getElementById('lossInput').value=app.profile.lossPerWeek; document.getElementById('plannedMoveInput').value=app.profile.plannedMove; });
 document.getElementById('saveGoalBtn').onclick=()=>{ app.profile.maintenance=Number(document.getElementById('maintenanceInput').value||2100); app.profile.lossPerWeek=Number(document.getElementById('lossInput').value||1.5); app.profile.plannedMove=Number(document.getElementById('plannedMoveInput').value||500); save(); renderAll(); };
