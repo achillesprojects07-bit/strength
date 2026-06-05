@@ -1,9 +1,1 @@
-{
-  "name": "CTA — Conditioning Training App",
-  "short_name": "CTA",
-  "start_url": "./index.html",
-  "display": "standalone",
-  "background_color": "#f7fbf5",
-  "theme_color": "#f7fbf5",
-  "icons": []
-}
+{"name":"CTA — Conditioning Training App","short_name":"CTA","start_url":"./index.html","display":"standalone","background_color":"#f5f7f1","theme_color":"#315c4c","icons":[]}

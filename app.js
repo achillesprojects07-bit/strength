@@ -1,333 +1,142 @@
-const APP_VERSION = '2.0';
-const STORAGE_KEY = 'ctaApp.v20';
+const $ = id => document.getElementById(id);
 const todayKey = () => new Date().toISOString().slice(0,10);
-const old = JSON.parse(localStorage.getItem('ctaApp.v19') || localStorage.getItem('ctaApp.v17') || localStorage.getItem('calmStrength.v16') || localStorage.getItem('calmStrength.v15') || localStorage.getItem('calmStrength.v14') || localStorage.getItem('calmStrength.v12') || localStorage.getItem('calmStrength.v11') || localStorage.getItem('calmStrength.v1') || '{}');
-let app = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || {
-  profile: old.profile || {name:'Aileen', sex:'female', age:0, weightUnit:'lb', weight:0, heightUnit:'cm', heightCm:0, heightFt:0, heightIn:0, activity:1.2, lossPerWeek:1.5, plannedMove:500, maintenance:2100, configured:false, startDate: todayKey()},
-  days: old.days || {},
-  trainer: {variation:0, filter:'all'},
-  customFoods: old.customFoods || []
+const storeKey = 'cta_v3_state';
+const defaultState = { profile:null, pain:null, food:[], moves:[], checkins:[], prefs:{focus:'balanced'}, date: todayKey() };
+let state = load();
+function load(){ try { return {...defaultState, ...JSON.parse(localStorage.getItem(storeKey)||'{}')}; } catch(e){ return {...defaultState}; }}
+function save(){ localStorage.setItem(storeKey, JSON.stringify(state)); }
+function ensureToday(){ if(state.date !== todayKey()){ state.date=todayKey(); state.food=[]; state.moves=[]; state.pain=null; save(); }}
+ensureToday();
+
+const libraries = {
+  cardio:['Easy walk','Brisk interval walk','Split walk day','March in place','Side step-touch','Chair march intervals','Seated side-step cardio','Low step-ups'],
+  lower:['Sit-to-stand','Wall squat','Wall sit','Step-up','Glute bridge','Wall-foot glute bridge','Standing calf raise','Chair leg extension','Standing hamstring curl','Side-lying leg raise'],
+  core:['Dead bug legs only','Heel taps','Supine marching','Pelvic tilt','Chair core lean-back','Wall dead bug prep','Standing knee lift','Side-lying wall leg press'],
+  posture:['Chin tuck','Scapular setting','Wall posture reset','Wall angels pain-free range','Shoulder rolls','Chest opener gentle','Wall breathing reset'],
+  rehab:['Warm compress timer','Elbow bend and straighten','Forearm rotation unloaded','Wrist motion unloaded','Gentle hand opening','Wrist flexion isometric','Pronation isometric','Finger flexor isometric'],
+  wallPilates:['Wall roll-down prep','Wall-foot glute bridge','Wall-foot bridge march','Wall Pilates squat and heel lift','Wall calf raise flow','Wall standing leg sweep','Wall sit with breathing','Legs-up-the-wall recovery','Wall hamstring stretch','Wall hip opener','Wall side leg sweep','Wall supported balance reach'],
+  chair:['Chair march intervals','Chair toe-heel taps','Chair sit-to-stand flow','Chair leg extension flow','Chair core lean-back','Seated side-step cardio','Chair posture reset','Seated knee lift','Seated calf raise','Chair breathing reset'],
+  locked:['Wall push-up','Wall plank','Roll-down to push-up','Plank knee taps','All-fours bird dog','Dumbbell row','Band rows held in hands']
 };
-function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
-function day(date=todayKey()){ if(!app.days[date]) app.days[date]={pain:'green', food:[], workouts:[], body:[], sessionDone:false, sessionKey:''}; return app.days[date]; }
-function sum(arr,k='cals'){ return arr.reduce((a,b)=>a+(Number(b[k])||0),0); }
-function lbToKg(lb){ return lb*0.45359237; }
-function heightCm(){ const p=app.profile; return p.heightUnit==='ftin' ? ((Number(p.heightFt)||0)*12+(Number(p.heightIn)||0))*2.54 : Number(p.heightCm)||0; }
-function weightKg(){ const p=app.profile; return p.weightUnit==='kg' ? Number(p.weight)||0 : lbToKg(Number(p.weight)||0); }
-function calculateMaintenance(){ const p=app.profile; const w=weightKg(), h=heightCm(), age=Number(p.age)||0; if(!w||!h||!age) return Number(p.maintenance)||2100; const bmr = p.sex==='male' ? 10*w + 6.25*h - 5*age + 5 : 10*w + 6.25*h - 5*age - 161; return Math.round(bmr * (Number(p.activity)||1.2)); }
-function targetDeficit(){ return Math.round((Number(app.profile.lossPerWeek)||1.5) * 3500 / 7); }
-function idealIntake(){ return Math.max(900, Math.round((Number(app.profile.maintenance)||calculateMaintenance()) + (Number(app.profile.plannedMove)||500) - targetDeficit())); }
-function safetyRating(ideal=idealIntake()){ const loss=Number(app.profile.lossPerWeek)||1.5; const deficit=targetDeficit(); if(loss>3 || ideal < 1000) return ['Extreme / not recommended','This target can create an unsafe or unrealistic daily deficit. Use only as a visibility calculator, not a prescription.']; if(loss>2 || ideal < 1200) return ['Very aggressive','Above 2 lb/week is aggressive. Protect your elbows; do not compensate with painful exercise.']; if(ideal < 1400 || deficit >= 1000) return ['Aggressive','Monitor hunger, energy, sleep, and elbow pain.']; return ['Sustainable','Reasonable starting target if energy and pain stay stable.']; }
-function formatDate(){ const now=new Date(); document.getElementById('dateText').textContent = now.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); document.getElementById('dayText').textContent = now.toLocaleDateString(undefined,{weekday:'long'}); document.getElementById('greeting').textContent = `Good morning, ${app.profile.name || 'Aileen'} 👋`; }
-
-const foodDb = {
-  // Staples and portions
-  'rice':{qty:'1 cup cooked',cals:200,cat:'Staples'}, 'half cup rice':{qty:'1/2 cup cooked',cals:100,cat:'Staples'}, 'garlic rice':{qty:'1 cup',cals:280,cat:'Staples'}, 'brown rice':{qty:'1 cup cooked',cals:215,cat:'Staples'}, 'oats':{qty:'1 cup cooked',cals:155,cat:'Staples'}, 'bread':{qty:'1 slice',cals:80,cat:'Staples'}, 'pandesal':{qty:'1 pc',cals:120,cat:'Staples'}, 'pita':{qty:'1 medium',cals:170,cat:'Staples'}, 'potato':{qty:'1 medium',cals:160,cat:'Staples'}, 'sweet potato':{qty:'1 medium',cals:115,cat:'Staples'},
-  // Protein basics
-  'egg':{qty:'1 pc',cals:80,cat:'Protein'}, 'fried egg':{qty:'1 pc',cals:95,cat:'Protein'}, 'boiled egg':{qty:'1 pc',cals:78,cat:'Protein'}, 'chicken breast':{qty:'100 g',cals:165,cat:'Protein'}, 'chicken thigh':{qty:'1 medium pc',cals:220,cat:'Protein'}, 'roast chicken':{qty:'100 g',cals:190,cat:'Protein'}, 'fish':{qty:'100 g',cals:130,cat:'Protein'}, 'grilled fish':{qty:'100 g',cals:150,cat:'Protein'}, 'salmon':{qty:'100 g',cals:205,cat:'Protein'}, 'tuna':{qty:'1 small can',cals:120,cat:'Protein'}, 'tofu':{qty:'100 g',cals:90,cat:'Protein'}, 'greek yogurt':{qty:'1 cup',cals:130,cat:'Protein'}, 'pork chop':{qty:'100 g',cals:260,cat:'Protein'}, 'beef':{qty:'100 g cooked',cals:250,cat:'Protein'},
-  // Filipino meals
-  'adobo':{qty:'1 serving',cals:350,cat:'Filipino'}, 'chicken adobo':{qty:'1 serving',cals:320,cat:'Filipino'}, 'pork adobo':{qty:'1 serving',cals:430,cat:'Filipino'}, 'sinigang':{qty:'1 bowl',cals:300,cat:'Filipino'}, 'pork sinigang':{qty:'1 bowl',cals:420,cat:'Filipino'}, 'tinola':{qty:'1 bowl',cals:250,cat:'Filipino'}, 'nilaga':{qty:'1 bowl',cals:350,cat:'Filipino'}, 'paksiw':{qty:'1 serving',cals:220,cat:'Filipino'}, 'pinakbet':{qty:'1 serving',cals:180,cat:'Filipino'}, 'laing':{qty:'1 serving',cals:280,cat:'Filipino'}, 'kare-kare':{qty:'1 serving',cals:550,cat:'Filipino'}, 'bicol express':{qty:'1 serving',cals:520,cat:'Filipino'}, 'sisig':{qty:'1 plate',cals:650,cat:'Filipino'}, 'lechon kawali':{qty:'1 serving',cals:700,cat:'Filipino'}, 'liempo':{qty:'1 serving',cals:600,cat:'Filipino'}, 'inasal':{qty:'1 chicken leg quarter',cals:360,cat:'Filipino'}, 'bangus':{qty:'1 medium serving',cals:280,cat:'Filipino'}, 'tapsilog':{qty:'1 plate',cals:750,cat:'Filipino'}, 'longsilog':{qty:'1 plate',cals:800,cat:'Filipino'}, 'tocilog':{qty:'1 plate',cals:780,cat:'Filipino'}, 'pancit':{qty:'1 plate',cals:450,cat:'Filipino'}, 'lumpia':{qty:'1 pc',cals:100,cat:'Filipino'}, 'turón':{qty:'1 pc',cals:180,cat:'Filipino'}, 'turon':{qty:'1 pc',cals:180,cat:'Filipino'}, 'halo-halo':{qty:'1 serving',cals:500,cat:'Filipino'},
-  // Greek and Mediterranean travel
-  'greek salad':{qty:'1 bowl',cals:350,cat:'Greek/Travel'}, 'souvlaki':{qty:'1 skewer',cals:220,cat:'Greek/Travel'}, 'souvlaki pita':{qty:'1 wrap',cals:550,cat:'Greek/Travel'}, 'gyro':{qty:'1 pita wrap',cals:650,cat:'Greek/Travel'}, 'gyros':{qty:'1 pita wrap',cals:650,cat:'Greek/Travel'}, 'tzatziki':{qty:'2 tbsp',cals:60,cat:'Greek/Travel'}, 'moussaka':{qty:'1 serving',cals:550,cat:'Greek/Travel'}, 'spanakopita':{qty:'1 piece',cals:300,cat:'Greek/Travel'}, 'dolmades':{qty:'5 pcs',cals:180,cat:'Greek/Travel'}, 'feta':{qty:'30 g',cals:80,cat:'Greek/Travel'}, 'olives':{qty:'10 pcs',cals:60,cat:'Greek/Travel'}, 'hummus':{qty:'1/4 cup',cals:110,cat:'Greek/Travel'}, 'falafel':{qty:'3 pcs',cals:250,cat:'Greek/Travel'}, 'baklava':{qty:'1 piece',cals:300,cat:'Greek/Travel'}, 'gelato':{qty:'1 scoop',cals:180,cat:'Greek/Travel'},
-  // International travel basics
-  'pizza':{qty:'1 slice',cals:300,cat:'Travel'}, 'burger':{qty:'1 regular',cals:550,cat:'Travel'}, 'fries':{qty:'medium',cals:365,cat:'Travel'}, 'pasta tomato':{qty:'1 plate',cals:500,cat:'Travel'}, 'pasta cream':{qty:'1 plate',cals:750,cat:'Travel'}, 'sandwich':{qty:'1 regular',cals:450,cat:'Travel'}, 'croissant':{qty:'1 pc',cals:280,cat:'Travel'}, 'omelette':{qty:'2 eggs',cals:250,cat:'Travel'}, 'steak':{qty:'150 g',cals:400,cat:'Travel'}, 'caesar salad':{qty:'1 bowl',cals:500,cat:'Travel'}, 'sushi roll':{qty:'6 pcs',cals:300,cat:'Travel'}, 'ramen':{qty:'1 bowl',cals:600,cat:'Travel'}, 'pad thai':{qty:'1 plate',cals:700,cat:'Travel'}, 'fried rice':{qty:'1 plate',cals:650,cat:'Travel'}, 'curry':{qty:'1 bowl',cals:550,cat:'Travel'},
-  // Snacks, fruits, drinks
-  'banana':{qty:'1 medium',cals:105,cat:'Snacks'}, 'apple':{qty:'1 medium',cals:95,cat:'Snacks'}, 'orange':{qty:'1 medium',cals:62,cat:'Snacks'}, 'nuts':{qty:'1 small handful/28g',cals:170,cat:'Snacks'}, 'chips':{qty:'1 small bag',cals:160,cat:'Snacks'}, 'chocolate':{qty:'1 bar 40g',cals:220,cat:'Snacks'}, 'milk tea':{qty:'16 oz',cals:350,cat:'Drinks'}, '3-in-1 coffee':{qty:'1 sachet',cals:90,cat:'Drinks'}, 'coke':{qty:'1 can',cals:140,cat:'Drinks'}, 'juice':{qty:'1 glass',cals:120,cat:'Drinks'}, 'beer':{qty:'1 bottle/can',cals:150,cat:'Drinks'}, 'wine':{qty:'1 glass',cals:125,cat:'Drinks'}, 'cafe latte':{qty:'12 oz',cals:180,cat:'Drinks'}, 'americano':{qty:'1 cup',cals:10,cat:'Drinks'}, 'cappuccino':{qty:'1 cup',cals:120,cat:'Drinks'}
-};
-
-function allFoods(){ const custom={}; (app.customFoods||[]).forEach(f=>{ custom[f.name.toLowerCase()]={qty:f.qty,cals:Number(f.cals)||0,cat:'My Foods'}; }); return {...foodDb, ...custom}; }
-function findFoodEstimate(query){ const key=(query||'').trim().toLowerCase(); if(!key) return null; const db=allFoods(); if(db[key]) return {name:key,...db[key]}; const keys=Object.keys(db).sort((a,b)=>b.length-a.length); const found=keys.find(k=>key.includes(k) || k.includes(key)); return found ? {name:found,...db[found]} : null; }
-function travelEstimate(){
-  const type=document.getElementById('travelFoodType')?.value || 'mixed';
-  const portion=document.getElementById('travelPortion')?.value || 'regular';
-  const method=document.getElementById('travelMethod')?.value || 'standard';
-  const base={leanProtein:260, fattyProtein:420, ricePasta:420, breadWrap:480, salad:300, soup:280, dessert:350, drink:160, mixed:550}[type] || 550;
-  const portionFactor={small:.7, regular:1, large:1.35, shared:.5}[portion] || 1;
-  const methodAdd={standard:0, grilled:-40, saucy:90, fried:180, creamy:220, sugary:120}[method] || 0;
-  const mid=Math.max(40, Math.round(base*portionFactor + methodAdd));
-  return {low:Math.round(mid*.85), mid, high:Math.round(mid*1.15)};
-}
-
-const exercises = [
-  {id:'walk-easy', cat:'Walking', title:'Easy Walk', mins:25, cals:125, safe:['green','yellow','red'], level:1, setup:'Comfortable pace. No hand weights. Do not grip treadmill rails.', prescription:'20–45 min easy.', stop:'Stop if dizziness, sharp pain, or you need to grip for support.'},
-  {id:'walk-brisk', cat:'Walking', title:'Brisk Walk Blocks', mins:35, cals:190, safe:['green','yellow'], level:2, setup:'Alternate comfortable and brisk pace. Arms relaxed.', prescription:'5 min warm-up, 2 min normal + 1 min brisk x 8, cool down.', stop:'Reduce pace if knees, back, or elbows tense.'},
-  {id:'walk-hills', cat:'Walking', title:'Gentle Incline Walk', mins:30, cals:180, safe:['green'], level:3, setup:'Small incline only. No railing grip.', prescription:'5 min easy + 15–20 min light incline + cool down.', stop:'Skip if you grip rails or feel joint strain.'},
-  {id:'split-walk', cat:'Walking', title:'Split Walk Day', mins:50, cals:250, safe:['green','yellow'], level:1, setup:'Break into two or three short walks.', prescription:'20 min morning + 20 min afternoon + 10 min evening.', stop:'Keep all walks easy on Yellow days.'},
-  {id:'indoor-march', cat:'Conditioning', title:'Indoor March Circuit', mins:20, cals:110, safe:['green','yellow'], level:1, setup:'Hands relaxed, no arm pumping if elbows complain.', prescription:'March 60 sec, rest 30 sec x 10.', stop:'Stop if balance feels off.'},
-  {id:'step-touch', cat:'Conditioning', title:'Step-Touch Burn', mins:22, cals:130, safe:['green','yellow'], level:1, setup:'Side step and tap. Keep hands relaxed.', prescription:'45 sec step-touch + 30 sec easy march x 12.', stop:'Reduce range if hips or knees complain.'},
-  {id:'low-step', cat:'Conditioning', title:'Low Step-Up Cardio', mins:20, cals:140, safe:['green'], level:2, setup:'Low step only. Light fingertip balance on wall if needed.', prescription:'Step up 30 sec, rest 30 sec x 15–20.', stop:'No gripping rail. Stop if knee pain.'},
-  {id:'chair-cardio', cat:'Conditioning', title:'Chair Cardio Legs Only', mins:18, cals:80, safe:['green','yellow','red','nerve'], level:1, setup:'Seated. Hands resting open on thighs.', prescription:'Seated march, heel taps, toe taps, knee lifts.', stop:'Keep intensity gentle on Red/Nerve days.'},
-  {id:'sit-stand', cat:'Lower Body', title:'Sit-to-Stand', mins:8, cals:40, safe:['green','yellow'], level:1, setup:'Arms crossed or relaxed. Do not push with hands.', prescription:'2–4 sets x 8–12 reps.', stop:'Stop if you need to press through hands.'},
-  {id:'slow-sit-stand', cat:'Lower Body', title:'Slow Sit-to-Stand', mins:10, cals:55, safe:['green'], level:2, setup:'3-second lower, stand tall. No hand push.', prescription:'3 sets x 6–10 reps.', stop:'Stop if knee or elbow tension rises.'},
-  {id:'chair-hover', cat:'Lower Body', title:'Chair Hover Holds', mins:8, cals:45, safe:['green'], level:3, setup:'Hover just above chair, arms relaxed.', prescription:'4–6 holds x 10–20 sec.', stop:'Sit fully if form breaks.'},
-  {id:'wall-squat', cat:'Lower Body', title:'Wall Squat Hold', mins:8, cals:45, safe:['green','yellow'], level:1, setup:'Back on wall. Arms loose. Shallow range.', prescription:'3–5 holds x 15–30 sec.', stop:'No knee pain. Do not brace with hands.'},
-  {id:'wall-squat-pulse', cat:'Lower Body', title:'Wall Squat Mini Pulses', mins:9, cals:55, safe:['green'], level:3, setup:'Shallow wall squat with small movement.', prescription:'3 rounds x 20 mini pulses.', stop:'Stop if knees ache.'},
-  {id:'glute-bridge', cat:'Lower Body', title:'Glute Bridge', mins:8, cals:40, safe:['green','yellow'], level:1, setup:'Lie on back. Arms relaxed, palms open.', prescription:'3 sets x 10–15 reps.', stop:'Do not press hard through arms.'},
-  {id:'bridge-hold', cat:'Lower Body', title:'Bridge Hold', mins:8, cals:45, safe:['green','yellow'], level:2, setup:'Lift hips and hold. Neck relaxed.', prescription:'4 holds x 15–30 sec.', stop:'Stop for back cramping.'},
-  {id:'marching-bridge', cat:'Lower Body', title:'Marching Bridge', mins:10, cals:60, safe:['green'], level:3, setup:'Bridge position, tiny marches. Arms relaxed.', prescription:'2–3 sets x 8 total marches.', stop:'Stop if pelvis rocks or arms press down.'},
-  {id:'side-leg', cat:'Lower Body', title:'Side-Lying Leg Raise', mins:8, cals:35, safe:['green','yellow','red'], level:1, setup:'Lie fully on side with pillow. Do not prop on elbow.', prescription:'2–3 sets x 10–15 each side.', stop:'No elbow propping.'},
-  {id:'clamshell', cat:'Lower Body', title:'Side-Lying Clamshell', mins:8, cals:35, safe:['green','yellow','red'], level:1, setup:'No band. Knees bent. Head on pillow.', prescription:'2–3 sets x 12 each side.', stop:'Stop if hip pinches.'},
-  {id:'standing-abduction', cat:'Lower Body', title:'Standing Side Leg Lift', mins:8, cals:45, safe:['green','yellow'], level:1, setup:'Light fingertip wall touch only.', prescription:'2–3 sets x 10–15 each side.', stop:'No gripping wall or chair.'},
-  {id:'stepup', cat:'Lower Body', title:'Low Step-Up Strength', mins:10, cals:65, safe:['green'], level:2, setup:'Low step. Fingers touch wall if needed.', prescription:'2–3 sets x 6–10 each leg.', stop:'Stop if you need to grip.'},
-  {id:'calf', cat:'Lower Body', title:'Standing Calf Raise', mins:6, cals:30, safe:['green','yellow'], level:1, setup:'Light fingertip support.', prescription:'3 sets x 12–20 reps.', stop:'No gripping support.'},
-  {id:'seated-leg-ext', cat:'Lower Body', title:'Seated Leg Extension', mins:7, cals:30, safe:['green','yellow','red'], level:1, setup:'Sit tall, hands relaxed.', prescription:'2–3 sets x 10–15 each leg.', stop:'Stop for knee pain.'},
-  {id:'standing-hamcurl', cat:'Lower Body', title:'Standing Hamstring Curl', mins:7, cals:35, safe:['green','yellow'], level:1, setup:'Light fingertip balance.', prescription:'2–3 sets x 10–15 each side.', stop:'No gripping.'},
-  {id:'deadbug-legs', cat:'Core', title:'Dead Bug Legs Only', mins:8, cals:30, safe:['green','yellow'], level:1, setup:'Arms resting on floor, not pressing.', prescription:'2–3 sets x 6–10 each side.', stop:'Stop if back arches.'},
-  {id:'heel-taps', cat:'Core', title:'Heel Taps', mins:8, cals:30, safe:['green','yellow'], level:1, setup:'On back, knees bent. Arms relaxed.', prescription:'2–3 sets x 8–12 each side.', stop:'Keep movement slow.'},
-  {id:'supine-march', cat:'Core', title:'Supine March', mins:7, cals:25, safe:['green','yellow','red'], level:1, setup:'Lie on back. No arm pressure.', prescription:'2–3 sets x 12 total.', stop:'Stop if back strains.'},
-  {id:'pelvic-tilt', cat:'Core', title:'Pelvic Tilt', mins:6, cals:15, safe:['green','yellow','red','nerve'], level:1, setup:'Gentle low-back flatten and release.', prescription:'2 sets x 10 slow reps.', stop:'No bracing with arms.'},
-  {id:'seated-knee', cat:'Core', title:'Seated Knee Lifts', mins:8, cals:30, safe:['green','yellow','red'], level:1, setup:'Hands open on thighs or chair seat without gripping.', prescription:'2–3 sets x 10 each side.', stop:'Stop if hip flexors cramp.'},
-  {id:'standing-march-core', cat:'Core', title:'Standing Core March', mins:8, cals:45, safe:['green','yellow'], level:1, setup:'Tall posture, slow knee lifts.', prescription:'3 rounds x 45 sec.', stop:'Use wall fingertip touch if needed.'},
-  {id:'chin-tuck', cat:'Posture', title:'Chin Tuck', mins:4, cals:5, safe:['green','yellow','red','nerve'], level:1, setup:'Gentle double-chin motion.', prescription:'2 sets x 8 reps.', stop:'No neck pain.'},
-  {id:'scap-set', cat:'Posture', title:'Scapular Setting', mins:5, cals:5, safe:['green','yellow','red','nerve'], level:1, setup:'Shoulders gently back/down. No hard squeeze.', prescription:'3 sets x 8, hold 3 sec.', stop:'Stop if elbow tingles.'},
-  {id:'shoulder-roll', cat:'Posture', title:'Shoulder Rolls', mins:4, cals:5, safe:['green','yellow','red','nerve'], level:1, setup:'Small relaxed circles.', prescription:'10 forward, 10 backward.', stop:'Keep arms heavy and relaxed.'},
-  {id:'wall-posture', cat:'Posture', title:'Wall Posture Reset', mins:5, cals:5, safe:['green','yellow'], level:1, setup:'Back to wall, arms relaxed.', prescription:'5 slow breaths x 3 rounds.', stop:'Skip if wall position triggers elbow.'},
-  {id:'elbow-rom', cat:'Rehab', title:'Elbow Bend / Straighten', mins:4, cals:5, safe:['green','yellow','red','nerve'], level:1, setup:'Unloaded, slow, pain-free.', prescription:'1–2 sets x 10 reps.', stop:'Do not stretch into pain.'},
-  {id:'forearm-rotate', cat:'Rehab', title:'Forearm Rotation Unloaded', mins:4, cals:5, safe:['green','yellow','red'], level:1, setup:'Elbow by side. Palm up/down, no object.', prescription:'1–2 sets x 10 reps.', stop:'Stop if medial elbow catches.'},
-  {id:'wrist-rom', cat:'Rehab', title:'Wrist Motion Unloaded', mins:4, cals:5, safe:['green','yellow','red'], level:1, setup:'Forearm supported, hand relaxed.', prescription:'1–2 sets x 10 reps.', stop:'No forced stretching.'},
-  {id:'hand-open', cat:'Rehab', title:'Gentle Hand Opening', mins:3, cals:3, safe:['green','yellow','red','nerve'], level:1, setup:'Open fingers, relax. No squeezing.', prescription:'1–2 sets x 10 reps.', stop:'No gripping.'},
-  {id:'wrist-iso', cat:'Rehab', title:'Wrist Flexion Isometric', mins:5, cals:5, safe:['green'], level:2, setup:'10–20% effort against other hand.', prescription:'5 holds x 5–10 sec.', stop:'Pain must stay 0–2/10.'},
-  {id:'pronation-iso', cat:'Rehab', title:'Pronation Isometric', mins:5, cals:5, safe:['green'], level:2, setup:'Elbow at side. Other hand blocks gently.', prescription:'5 holds x 5–10 sec.', stop:'No sharp pain.'},
-  {id:'finger-iso', cat:'Rehab', title:'Finger Flexor Isometric', mins:4, cals:3, safe:['green'], level:2, setup:'No fist. Gentle finger press only.', prescription:'5 holds x 5 sec.', stop:'No gripping pain.'},
-  
-  // Wall Pilates — elbow-safe, no all-fours, no wrist weight-bearing
-  {id:'wall-pilates-roll', cat:'Wall Pilates', title:'Wall Roll-Down Prep', mins:6, cals:20, safe:['green','yellow'], level:1, setup:'Back near wall, arms relaxed by sides. Slowly nod chin and roll upper spine only as comfortable.', prescription:'2 sets x 5 slow reps.', stop:'Stop if neck, back, or elbow tension increases.'},
-  {id:'wall-pilates-bridge', cat:'Wall Pilates', title:'Wall-Foot Glute Bridge', mins:9, cals:45, safe:['green','yellow'], level:2, setup:'Lie on back, feet on wall, arms relaxed. Press through feet, not arms.', prescription:'3 sets x 8–12 reps.', stop:'Do not press hard through elbows or hands.'},
-  {id:'wall-pilates-march', cat:'Wall Pilates', title:'Wall-Foot Bridge March', mins:10, cals:55, safe:['green'], level:3, setup:'Feet on wall, bridge position, tiny alternating foot lifts. Arms relaxed.', prescription:'2 sets x 8 total marches.', stop:'Stop if pelvis rocks or arms press down.'},
-  {id:'wall-pilates-squat', cat:'Wall Pilates', title:'Wall Pilates Squat + Heel Lift', mins:10, cals:65, safe:['green'], level:2, setup:'Back on wall, shallow squat, lift heels gently one or both at a time.', prescription:'3 rounds: 8 squats + 8 heel lifts.', stop:'Skip heel lifts if calves cramp or knees hurt.'},
-  {id:'wall-pilates-abduction', cat:'Wall Pilates', title:'Wall Standing Leg Sweep', mins:8, cals:45, safe:['green','yellow'], level:1, setup:'Light fingertip wall touch only, no gripping. Sweep leg side/back in small range.', prescription:'2 sets x 8 each direction per leg.', stop:'Stop if balance requires gripping.'},
-  {id:'wall-pilates-calf', cat:'Wall Pilates', title:'Wall Calf Raise Flow', mins:7, cals:40, safe:['green','yellow'], level:1, setup:'Fingertips on wall only. Rise slowly, lower slowly.', prescription:'3 sets x 12–18 reps.', stop:'No gripping or leaning into hands.'},
-  {id:'wall-pilates-posture', cat:'Wall Pilates', title:'Wall Posture + Breath', mins:6, cals:10, safe:['green','yellow','red','nerve'], level:1, setup:'Back to wall if comfortable. Arms relaxed. Slow ribs-down breathing.', prescription:'5 breaths x 4 rounds.', stop:'Skip if wall position causes tingling.'},
-
-
-  // Expanded Wall Pilates library — beginner, intermediate, advanced. Arm-weight-bearing versions are excluded/locked because of elbow pain.
-  {id:'wp-breath-rib', cat:'Wall Pilates', title:'Beginner: Wall Rib Breathing', mins:5, cals:8, safe:['green','yellow','red','nerve'], level:1, setup:'Back near wall or seated with back supported. Hands relaxed in lap.', prescription:'6 slow breaths x 3 rounds. Exhale and gently draw ribs down.', stop:'Stop if tingling, dizziness, or neck tension appears.'},
-  {id:'wp-neutral-spine', cat:'Wall Pilates', title:'Beginner: Wall Neutral Spine Check', mins:5, cals:8, safe:['green','yellow','red','nerve'], level:1, setup:'Stand with head, upper back, and hips near wall. Feet slightly forward. Arms relaxed.', prescription:'Hold 20–30 sec x 4. Find tall posture without forcing low back flat.', stop:'Skip if wall position increases elbow or nerve symptoms.'},
-  {id:'wp-chin-nod', cat:'Wall Pilates', title:'Beginner: Wall Chin Nod', mins:5, cals:8, safe:['green','yellow','red','nerve'], level:1, setup:'Back to wall or seated. Keep shoulders soft.', prescription:'2 sets x 8 gentle chin nods. Move small and slow.', stop:'Stop if it causes headache, dizziness, or arm symptoms.'},
-  {id:'wp-shoulder-blade-set', cat:'Wall Pilates', title:'Beginner: Wall Scapular Set', mins:5, cals:10, safe:['green','yellow','red'], level:1, setup:'Back near wall, arms relaxed by sides, no pressing elbows into wall.', prescription:'2–3 sets x 8. Gently draw shoulder blades back/down, hold 2 sec.', stop:'Stop if inner elbow pulls or tingles.'},
-  {id:'wp-arm-float-low', cat:'Wall Pilates', title:'Beginner: Low Wall Arm Float', mins:6, cals:12, safe:['green','yellow'], level:1, setup:'Back to wall. Lift arms only to pain-free height, thumbs up. No wall pressure through arms.', prescription:'2 sets x 6 slow lifts to chest height only.', stop:'Skip if any elbow pain, forearm pull, or tingling.'},
-  {id:'wp-wall-angels-mod', cat:'Wall Pilates', title:'Beginner: Modified Wall Angels', mins:7, cals:15, safe:['green'], level:2, setup:'Back to wall, elbows bent only if pain-free. Keep range small.', prescription:'2 sets x 5–8 slow reps. Stop before elbow strain.', stop:'Do not force arms overhead. Skip on Yellow/Red elbow days.'},
-  {id:'wp-roll-down-full', cat:'Wall Pilates', title:'Beginner: Wall Roll-Down', mins:7, cals:20, safe:['green','yellow'], level:1, setup:'Back to wall, feet forward. Arms hang relaxed, no gripping.', prescription:'2–3 sets x 4–6 slow roll-downs, only as far as comfortable.', stop:'Stop if back pain, dizziness, or hamstring nerve pull.'},
-  {id:'wp-roll-down-half', cat:'Wall Pilates', title:'Beginner: Half Wall Roll-Down', mins:5, cals:15, safe:['green','yellow','red'], level:1, setup:'Only nod head and round upper back slightly. Arms relaxed.', prescription:'2 sets x 5. This is the red-day version of roll-down.', stop:'Stop if symptoms travel down arm or leg.'},
-  {id:'wp-wall-sit-short', cat:'Wall Pilates', title:'Beginner: Short Wall Sit', mins:7, cals:35, safe:['green','yellow'], level:1, setup:'Back to wall, shallow knee bend. Knees over ankles. Arms relaxed.', prescription:'4 holds x 10–20 sec. Stay higher than a full squat.', stop:'Stop if knee pain or you brace with hands.'},
-  {id:'wp-wall-sit-breath', cat:'Wall Pilates', title:'Beginner: Wall Sit + Breath', mins:8, cals:40, safe:['green','yellow'], level:1, setup:'Shallow wall sit, ribs stacked, hands relaxed.', prescription:'3 holds x 3 slow breaths. Stand between holds.', stop:'No breath-holding, no knee pain.'},
-  {id:'wp-wall-squat-reps', cat:'Wall Pilates', title:'Beginner: Wall Squat Reps', mins:8, cals:50, safe:['green','yellow'], level:1, setup:'Back slides on wall. Small range first.', prescription:'2–3 sets x 8–10 reps.', stop:'Stop if knees collapse inward or elbows tense.'},
-  {id:'wp-wall-calf-slow', cat:'Wall Pilates', title:'Beginner: Slow Wall Calf Raises', mins:7, cals:40, safe:['green','yellow'], level:1, setup:'Fingertips touch wall for balance only. No gripping.', prescription:'3 sets x 10–15. 2 sec up, 2 sec down.', stop:'Stop if you lean weight through hands.'},
-  {id:'wp-wall-toe-raises', cat:'Wall Pilates', title:'Beginner: Wall Toe Raises', mins:6, cals:30, safe:['green','yellow'], level:1, setup:'Back to wall or fingertips on wall. Lift toes while heels stay down.', prescription:'2–3 sets x 12–15 reps.', stop:'Stop if shins cramp sharply.'},
-  {id:'wp-standing-march-wall', cat:'Wall Pilates', title:'Beginner: Wall-Supported March', mins:8, cals:50, safe:['green','yellow'], level:1, setup:'Stand tall, fingertips to wall if needed. No grip.', prescription:'3 rounds x 30–45 sec slow marches.', stop:'Stop if balance requires gripping.'},
-  {id:'wp-standing-knee-lift', cat:'Wall Pilates', title:'Beginner: Wall Knee Lift Hold', mins:7, cals:35, safe:['green','yellow'], level:1, setup:'Light wall touch. Lift one knee to comfortable height.', prescription:'2 sets x 6 each side, 3-sec hold.', stop:'Stop if hip pinches or you grip the wall.'},
-  {id:'wp-side-leg-sweep', cat:'Wall Pilates', title:'Beginner: Wall Side Leg Sweep', mins:8, cals:45, safe:['green','yellow'], level:1, setup:'One side near wall, fingertips light. Sweep leg side to center.', prescription:'2–3 sets x 8–12 each side.', stop:'Keep pelvis steady; no leaning into hand.'},
-  {id:'wp-back-leg-sweep', cat:'Wall Pilates', title:'Beginner: Wall Back Leg Sweep', mins:8, cals:45, safe:['green','yellow'], level:1, setup:'Face wall with fingertips light. Extend leg back small range.', prescription:'2–3 sets x 8–12 each side.', stop:'Stop if low back arches or hands press hard.'},
-  {id:'wp-front-leg-sweep', cat:'Wall Pilates', title:'Beginner: Wall Front Leg Sweep', mins:8, cals:40, safe:['green','yellow'], level:1, setup:'Side to wall, stand tall. Sweep straight leg forward small range.', prescription:'2 sets x 8–10 each side.', stop:'Keep movement small if hip flexors grip.'},
-  {id:'wp-leg-circles-small', cat:'Wall Pilates', title:'Beginner: Small Standing Leg Circles', mins:8, cals:45, safe:['green'], level:2, setup:'Light wall touch. One leg slightly lifted.', prescription:'2 sets x 6 circles each direction per leg.', stop:'Stop if balance requires gripping or pelvis twists.'},
-  {id:'wp-wall-side-bend', cat:'Wall Pilates', title:'Beginner: Wall Side Bend', mins:6, cals:20, safe:['green','yellow'], level:1, setup:'Stand side-on near wall, arms relaxed or one hand across chest.', prescription:'2 sets x 6 gentle bends each side.', stop:'Do not reach overhead if elbows complain.'},
-  {id:'wp-standing-wall-hamstring-hinge', cat:'Wall Pilates', title:'Beginner: Wall Hip Hinge', mins:8, cals:35, safe:['green','yellow'], level:2, setup:'Stand facing away from wall, hips move back toward wall. Arms relaxed.', prescription:'2 sets x 8–10 reps.', stop:'Stop if back rounds or hamstring nerve pull.'},
-  {id:'wp-wall-balance-tandem', cat:'Wall Pilates', title:'Beginner: Wall Tandem Balance', mins:6, cals:20, safe:['green','yellow'], level:1, setup:'Stand heel-to-toe beside wall. Fingertips hover or touch lightly.', prescription:'3 holds x 15–30 sec each side.', stop:'Do not grip wall. Step out if balance fails.'},
-  {id:'wp-feet-wall-pelvic-tilt', cat:'Wall Pilates', title:'Beginner: Feet-on-Wall Pelvic Tilt', mins:7, cals:25, safe:['green','yellow','red'], level:1, setup:'Lie on back, feet on wall, knees bent. Arms relaxed, palms up.', prescription:'2–3 sets x 8–12 slow tilts.', stop:'Do not press elbows or hands down.'},
-  {id:'wp-feet-wall-bridge-hold', cat:'Wall Pilates', title:'Beginner: Feet-on-Wall Bridge Hold', mins:8, cals:40, safe:['green','yellow'], level:1, setup:'Feet on wall, lift hips small range. Arms relaxed.', prescription:'3 holds x 10–20 sec.', stop:'Stop if hamstrings cramp or arms press down.'},
-  {id:'wp-feet-wall-bridge-reps', cat:'Wall Pilates', title:'Beginner: Feet-on-Wall Bridge Reps', mins:9, cals:45, safe:['green','yellow'], level:2, setup:'Feet on wall, knees bent. Press through feet.', prescription:'3 sets x 8–12 reps.', stop:'Keep ribs down; no low-back pinching.'},
-  {id:'wp-wall-dead-bug-feet', cat:'Wall Pilates', title:'Beginner: Wall Dead Bug Feet Press', mins:8, cals:35, safe:['green','yellow'], level:2, setup:'Lie on back, feet on wall, knees 90°. Arms relaxed.', prescription:'2–3 sets x 6 slow alternating heel lifts.', stop:'Keep low back comfortable; no arm pressing.'},
-  {id:'wp-wall-tabletop-hold', cat:'Wall Pilates', title:'Intermediate: Feet-on-Wall Tabletop Hold', mins:8, cals:35, safe:['green','yellow'], level:2, setup:'Back on mat, feet on wall, ribs down.', prescription:'4 holds x 15–25 sec.', stop:'Stop if low back lifts or breath holds.'},
-  {id:'wp-side-lying-wall-leg-lift', cat:'Wall Pilates', title:'Beginner: Side-Lying Wall Leg Lift', mins:9, cals:45, safe:['green','yellow'], level:2, setup:'Lie on side, head supported by pillow not elbow. Top foot near wall.', prescription:'2–3 sets x 8–12 each side.', stop:'Do not prop on elbow. Keep range controlled.'},
-  {id:'wp-side-lying-clam-wall', cat:'Wall Pilates', title:'Beginner: Wall Clam', mins:8, cals:40, safe:['green','yellow'], level:2, setup:'Side-lying, knees bent, head supported. Feet may touch wall for alignment.', prescription:'2 sets x 10–12 each side.', stop:'No elbow propping; stop if hip cramps.'},
-  {id:'wp-wall-hamstring-stretch', cat:'Wall Pilates', title:'Recovery: Wall Hamstring Stretch', mins:6, cals:10, safe:['green','yellow','red','nerve'], level:1, setup:'On back near wall, one leg up wall if comfortable, knee soft.', prescription:'Hold 20–30 sec x 2 each side.', stop:'Stop if nerve pain shoots down leg.'},
-  {id:'wp-legs-up-wall', cat:'Wall Pilates', title:'Recovery: Legs Up the Wall', mins:8, cals:8, safe:['green','yellow','red','nerve'], level:1, setup:'Lie on back with legs resting on wall. Arms comfortable, elbows relaxed.', prescription:'2–8 min relaxed breathing.', stop:'Come out if tingling, dizziness, or back discomfort.'},
-  {id:'wp-wall-figure-four', cat:'Wall Pilates', title:'Recovery: Wall Figure-4 Stretch', mins:8, cals:12, safe:['green','yellow','red'], level:1, setup:'On back, one ankle across opposite thigh, foot on wall.', prescription:'Hold 20–30 sec x 2 each side.', stop:'No knee pain or sciatic pull.'},
-  {id:'wp-wall-butterfly', cat:'Wall Pilates', title:'Recovery: Wall Butterfly', mins:6, cals:8, safe:['green','yellow','red'], level:1, setup:'Legs up wall, soles together, knees open gently.', prescription:'Hold 30–60 sec x 2.', stop:'Support knees if groin feels strained.'},
-  {id:'wp-wall-straddle', cat:'Wall Pilates', title:'Recovery: Wall Straddle', mins:7, cals:10, safe:['green','yellow'], level:2, setup:'Legs up wall, open legs gently to a V. Keep back relaxed.', prescription:'Hold 30–60 sec x 2.', stop:'No aggressive stretching.'},
-  {id:'wp-wall-active-frog', cat:'Wall Pilates', title:'Recovery: Wall Active Frog', mins:8, cals:20, safe:['green','yellow'], level:2, setup:'Feet on wall, knees bent and open, slowly slide feet a little.', prescription:'2 sets x 6–8 slow reps.', stop:'Stop if hip/groin pinches.'},
-  {id:'wp-wall-glute-stretch-press', cat:'Wall Pilates', title:'Recovery: Wall Glute Press Stretch', mins:7, cals:12, safe:['green','yellow','red'], level:1, setup:'On back, figure-4 position, gently press foot into wall.', prescription:'3 gentle presses x 5 sec each side, then hold 20 sec.', stop:'No knee twisting.'},
-  {id:'wp-standing-oblique-crunch', cat:'Wall Pilates', title:'Intermediate: Wall Oblique Knee Lift', mins:9, cals:60, safe:['green'], level:3, setup:'Side to wall, fingertips light. Bring knee slightly toward same-side ribs.', prescription:'3 sets x 8–10 each side.', stop:'No pulling with arms or twisting into pain.'},
-  {id:'wp-wall-lunge-static', cat:'Wall Pilates', title:'Intermediate: Wall Static Lunge', mins:10, cals:70, safe:['green'], level:3, setup:'Side to wall for fingertip balance. Split stance, shallow bend.', prescription:'2–3 sets x 6–8 each leg.', stop:'Stop if knee pain or hand gripping appears.'},
-  {id:'wp-wall-split-squat', cat:'Wall Pilates', title:'Intermediate: Wall-Assisted Split Squat', mins:12, cals:85, safe:['green'], level:4, setup:'Fingertips to wall only. Keep torso tall and range shallow.', prescription:'2–3 sets x 6–10 each side.', stop:'No gripping; no knee collapse.'},
-  {id:'wp-wall-side-lunge', cat:'Wall Pilates', title:'Intermediate: Wall Side Lunge', mins:10, cals:80, safe:['green'], level:3, setup:'Face wall with fingertips light. Step side and bend one knee.', prescription:'2 sets x 6–8 each side.', stop:'Skip if groin, knee, or balance feels unsafe.'},
-  {id:'wp-wall-squat-pulse', cat:'Wall Pilates', title:'Intermediate: Wall Squat Pulses', mins:9, cals:60, safe:['green'], level:3, setup:'Shallow wall squat. Tiny pulses only.', prescription:'3 rounds x 15–25 pulses.', stop:'Stop if knees ache or breath-holding starts.'},
-  {id:'wp-wall-squat-heel-lift-alt', cat:'Wall Pilates', title:'Intermediate: Wall Squat Alternate Heel Lifts', mins:10, cals:70, safe:['green'], level:3, setup:'Shallow wall squat, lift one heel at a time.', prescription:'3 rounds x 8–12 alternating heel lifts.', stop:'Skip if calves cramp or knees hurt.'},
-  {id:'wp-wall-sit-adductor', cat:'Wall Pilates', title:'Intermediate: Wall Sit Pillow Squeeze', mins:9, cals:55, safe:['green'], level:3, setup:'Place pillow between knees. Shallow wall sit.', prescription:'4 holds x 15–25 sec with gentle squeeze.', stop:'Do not strain inner thighs or hold breath.'},
-  {id:'wp-feet-wall-bridge-pulse', cat:'Wall Pilates', title:'Intermediate: Feet-on-Wall Bridge Pulses', mins:9, cals:55, safe:['green'], level:3, setup:'Small bridge lift, pulse hips 1–2 inches.', prescription:'3 rounds x 15–20 pulses.', stop:'Stop if hamstrings dominate or back arches.'},
-  {id:'wp-feet-wall-bridge-march2', cat:'Wall Pilates', title:'Intermediate: Feet-on-Wall Bridge March', mins:10, cals:60, safe:['green'], level:3, setup:'Bridge with both feet on wall. Lift one heel/foot tiny amount.', prescription:'2–3 sets x 6–10 total marches.', stop:'Stop if pelvis rocks or arms push down.'},
-  {id:'wp-wall-hamstring-press', cat:'Wall Pilates', title:'Intermediate: Wall Hamstring Press Isometric', mins:8, cals:40, safe:['green','yellow'], level:3, setup:'On back, one or both heels press gently into wall without lifting hips high.', prescription:'5 holds x 8–12 sec.', stop:'Gentle only. Stop if cramps or back pain.'},
-  {id:'wp-wall-toe-taps', cat:'Wall Pilates', title:'Intermediate: Wall Toe Taps', mins:9, cals:45, safe:['green'], level:3, setup:'Lie on back with knees bent and feet lightly touching wall.', prescription:'2–3 sets x 8–10 alternating toe taps.', stop:'Stop if low back arches or hip flexors grip.'},
-  {id:'wp-wall-100-legs', cat:'Wall Pilates', title:'Intermediate: Wall Hundred Legs-Only Prep', mins:8, cals:45, safe:['green'], level:3, setup:'On back, feet on wall or legs tabletop. Arms rest, no pumping.', prescription:'5 rounds x 10 breaths with steady core.', stop:'No neck strain. Do not pump arms with elbow pain.'},
-  {id:'wp-wall-ab-curl-micro', cat:'Wall Pilates', title:'Intermediate: Micro Ab Curl, Feet on Wall', mins:8, cals:40, safe:['green'], level:3, setup:'Feet on wall, hands across chest or supporting head only if elbows tolerate.', prescription:'2 sets x 6–8 tiny curls.', stop:'Skip if neck or elbow discomfort appears.'},
-  {id:'wp-side-lying-wall-kick', cat:'Wall Pilates', title:'Intermediate: Side-Lying Wall Front/Back Kick', mins:10, cals:55, safe:['green'], level:3, setup:'Side-lying, head on pillow, top foot glides lightly along wall.', prescription:'2 sets x 8 front/back each side.', stop:'Stop if pelvis rolls or hip pinches.'},
-  {id:'wp-side-lying-hydrant-wall', cat:'Wall Pilates', title:'Intermediate: Side-Lying Wall Hydrant', mins:10, cals:55, safe:['green'], level:3, setup:'Side-lying, knees bent, feet near wall. Head supported, no elbow prop.', prescription:'2–3 sets x 8–12 each side.', stop:'Keep heels light and pelvis steady.'},
-  {id:'wp-prone-wall-back-extension', cat:'Wall Pilates', title:'Intermediate: Wall Back Extension Prep', mins:8, cals:30, safe:['green'], level:3, setup:'Lie on stomach with feet lightly against wall, forehead on towel, arms by sides.', prescription:'2 sets x 6 tiny chest floats, glutes gentle.', stop:'Skip if low back pain or elbow/neck tension.'},
-  {id:'wp-prone-leg-press-wall', cat:'Wall Pilates', title:'Intermediate: Prone Wall Leg Press', mins:8, cals:35, safe:['green'], level:3, setup:'Lie face down, soles of feet lightly press wall, arms relaxed.', prescription:'5 holds x 8 sec gentle press.', stop:'No low-back compression.'},
-  {id:'wp-standing-wall-good-morning', cat:'Wall Pilates', title:'Intermediate: Wall Good-Morning Prep', mins:9, cals:45, safe:['green'], level:3, setup:'Hands across chest, hips hinge back to touch wall lightly.', prescription:'3 sets x 8–10 slow reps.', stop:'No hand loading. Stop if back discomfort.'},
-  {id:'wp-wall-single-leg-balance', cat:'Wall Pilates', title:'Intermediate: Wall Single-Leg Balance', mins:7, cals:30, safe:['green'], level:3, setup:'Stand beside wall, fingertips light. Lift one foot slightly.', prescription:'3 holds x 10–25 sec each side.', stop:'No gripping or knee locking.'},
-  {id:'wp-wall-sit-march', cat:'Wall Pilates', title:'Advanced: Wall Sit March', mins:10, cals:80, safe:['green'], level:5, setup:'Very shallow wall sit. Lift one heel or foot slightly, alternating.', prescription:'3 rounds x 8–12 total marches.', stop:'Stop if back slides, knees hurt, or effort becomes breathless.'},
-  {id:'wp-single-leg-wall-squat', cat:'Wall Pilates', title:'Advanced: Assisted Single-Leg Wall Squat Prep', mins:10, cals:75, safe:['green'], level:5, setup:'Back to wall, one heel light. Very shallow range.', prescription:'2 sets x 4–6 each side. Tiny range only.', stop:'Skip if knee, hip, or balance feels unstable.'},
-  {id:'wp-single-leg-bridge-wall', cat:'Wall Pilates', title:'Advanced: Single-Leg Wall Bridge', mins:10, cals:70, safe:['green'], level:5, setup:'One foot on wall, other leg bent toward chest or extended if controlled.', prescription:'2 sets x 5–8 each side.', stop:'No back pinch, hamstring cramp, or arm bracing.'},
-  {id:'wp-single-leg-bridge-pulse', cat:'Wall Pilates', title:'Advanced: Single-Leg Wall Bridge Pulses', mins:10, cals:75, safe:['green'], level:5, setup:'Small range single-leg bridge, only if normal bridge is easy.', prescription:'2 sets x 8–12 tiny pulses each side.', stop:'Stop if pelvis drops or cramping starts.'},
-  {id:'wp-side-lying-leg-circles-wall', cat:'Wall Pilates', title:'Advanced: Side-Lying Wall Leg Circles', mins:10, cals:60, safe:['green'], level:5, setup:'Side-lying, top leg long near wall. Small circles.', prescription:'2 sets x 6 circles each direction per side.', stop:'Stop if pelvis rocks or low back works.'},
-  {id:'wp-wall-balance-reach', cat:'Wall Pilates', title:'Advanced: Wall Balance Toe Reach', mins:10, cals:60, safe:['green'], level:5, setup:'Light fingertip wall touch. Standing leg soft, reach free foot forward/side/back.', prescription:'2 rounds x 3 directions each leg.', stop:'Stop if ankle, knee, or balance feels unsafe.'},
-
-  // Chair exercises — travel-friendly and red/yellow-day friendly
-  {id:'chair-march', cat:'Chair', title:'Chair March Intervals', mins:12, cals:55, safe:['green','yellow','red','nerve'], level:1, setup:'Sit tall. Hands open on thighs. March legs without gripping chair.', prescription:'45 sec march + 30 sec easy x 8.', stop:'Keep gentle on Red/Nerve days.'},
-  {id:'chair-tap-combo', cat:'Chair', title:'Chair Toe-Heel Tap Combo', mins:10, cals:40, safe:['green','yellow','red','nerve'], level:1, setup:'Seated. Alternate toe taps, heel taps, and out-in taps.', prescription:'3 rounds x 60 sec.', stop:'Stop if hip flexors cramp.'},
-  {id:'chair-sit-stand', cat:'Chair', title:'Chair Sit-to-Stand Flow', mins:10, cals:65, safe:['green','yellow'], level:1, setup:'Stand up from chair without pushing hands. Sit slowly.', prescription:'3 sets x 8–10 reps.', stop:'Stop if you need hands to push.'},
-  {id:'chair-leg-ext-flow', cat:'Chair', title:'Chair Leg Extension Flow', mins:8, cals:35, safe:['green','yellow','red'], level:1, setup:'Sit tall. Extend one knee, lower slowly.', prescription:'2–3 sets x 10 each leg.', stop:'No knee pain.'},
-  {id:'chair-core-lean', cat:'Chair', title:'Chair Core Lean-Back', mins:8, cals:35, safe:['green','yellow'], level:2, setup:'Sit tall near chair front, lean back a few inches with neutral spine. Hands relaxed.', prescription:'3 sets x 6–8 slow reps.', stop:'Do not grip chair or strain back.'},
-  {id:'chair-side-step', cat:'Chair', title:'Seated Side-Step Cardio', mins:12, cals:60, safe:['green','yellow','red'], level:1, setup:'Sit tall, step one foot to side then back, alternate.', prescription:'45 sec work + 30 sec easy x 8.', stop:'Keep smooth and pain-free.'},
-  {id:'chair-posture-reset', cat:'Chair', title:'Chair Posture Reset', mins:5, cals:5, safe:['green','yellow','red','nerve'], level:1, setup:'Sit tall, shoulder blades soft, chin gently tucked.', prescription:'5 breaths + 8 chin tucks + 8 shoulder rolls.', stop:'Stop if tingling increases.'}
+const foodDb = [
+  ['rice cooked 1 cup',200],['rice cooked 1/2 cup',100],['fried egg 1 piece',90],['boiled egg 1 piece',70],['chicken breast 100g',165],['chicken thigh 1 piece',220],['fish grilled 100g',150],['tofu 100g',90],['Greek salad 1 bowl',300],['chicken souvlaki pita 1 piece',550],['gyro pita 1 piece',650],['moussaka 1 serving',550],['spanakopita 1 piece',300],['yogurt Greek plain 1 cup',130],['banana 1 medium',105],['apple 1 medium',95],['pancit 1 plate',400],['adobo 1 serving',350],['sinigang 1 bowl',300],['tocino 1 serving',300],['longganisa 1 piece',180],['milk tea regular',450],['coffee with milk sugar',120],['coke regular can',140]
 ];
 
-const weeklyPattern = ['Strength Base','Walking Intervals','Core + Posture','Lower Body Variety','Steady Walk','Conditioning Circuit','Recovery'];
-const phases = [
-  {name:'Foundation', weeks:'1–4', focus:'Learn movements, control pain, build consistency.', progress:'Add minutes or reps only.'},
-  {name:'Volume Build', weeks:'5–8', focus:'More total work without adding elbow stress.', progress:'Add one set or longer walking.'},
-  {name:'Tempo Control', weeks:'9–12', focus:'Slow lowering, holds, better muscle control.', progress:'Slower tempo, pauses.'},
-  {name:'Density + Variety', weeks:'13–16', focus:'Circuits, intervals, more variety.', progress:'Shorter rests, more rounds.'}
-];
-function weekNumber(){ const start = app.profile.startDate ? new Date(app.profile.startDate) : new Date(); const diff = Math.floor((new Date(todayKey()) - start)/(86400000)); return Math.max(1, Math.floor(diff/7)+1); }
-function phaseIndex(){ return Math.min(3, Math.floor((weekNumber()-1)/4)); }
-function dayIndex(){ return new Date().getDay(); }
-function painRules(){ const p=day().pain; if(p==='green') return {mode:'Train', intensity:'moderate', allowProgress:true, title:'Green Day — Train safely', note:'You can do today’s generated workout. Progress only one variable.'}; if(p==='yellow') return {mode:'Maintain', intensity:'light', allowProgress:false, title:'Yellow Day — Maintain, don’t push', note:'Workout changed to walking, recovery core, and mobility. No progression today.'}; if(p==='red') return {mode:'Recovery', intensity:'gentle', allowProgress:false, title:'Red Day — Recovery only', note:'No strength or calorie chasing. Gentle movement and mobility only.'}; return {mode:'Nerve Safety', intensity:'gentle', allowProgress:false, title:'Nerve symptoms — Avoid loading', note:'Avoid elbow loading and consider medical assessment if numbness/tingling continues.'}; }
-function byId(id){ return exercises.find(e=>e.id===id); }
-function choose(cat, pain, levelMax, count, offset=0){ const pool = exercises.filter(e=>e.cat===cat && e.safe.includes(pain) && e.level<=levelMax); const out=[]; for(let i=0;i<count && pool.length;i++) out.push(pool[(i+offset)%pool.length]); return out; }
-function uniqueEx(list){ const seen=new Set(); return list.filter(e=>e && !seen.has(e.id) && seen.add(e.id)); }
-function safePick(cats, pain, levelMax, count, offset=0){
-  const catList=Array.isArray(cats)?cats:[cats];
-  const pool=exercises.filter(e=>catList.includes(e.cat) && e.safe.includes(pain) && e.level<=levelMax);
-  const out=[];
-  for(let i=0;i<count && pool.length;i++) out.push(pool[(i+offset)%pool.length]);
-  return out;
+function lbToKg(x){return Number(x)*0.45359237}
+function kgToLb(x){return Number(x)*2.20462262}
+function calcProfile(){
+  const p = state.profile; if(!p) return null;
+  const kg = p.weightUnit==='kg' ? Number(p.weight) : lbToKg(p.weight);
+  const cm = p.heightUnit==='cm' ? Number(p.heightCm) : (Number(p.heightFt)*30.48 + Number(p.heightIn)*2.54);
+  const bmr = p.sex==='male' ? (10*kg + 6.25*cm - 5*p.age + 5) : (10*kg + 6.25*cm - 5*p.age - 161);
+  const maintenance = Math.round(bmr * Number(p.activity));
+  const targetDeficit = Math.round((Number(p.lossPerWeek)*3500)/7);
+  const plannedMove = Number(p.plannedMove || 500);
+  const idealIntake = Math.round(maintenance + plannedMove - targetDeficit);
+  return {kg, cm, bmr:Math.round(bmr), maintenance, targetDeficit, plannedMove, idealIntake};
 }
-function generateSession(variation=app.trainer.variation){
-  const p=day().pain;
-  const rule=painRules();
-  const phase=phaseIndex();
-  const weekday=weeklyPattern[dayIndex()];
-  const levelMax = p==='green' ? Math.min(4, phase+1) : 1;
-  let title = weekday + ' Complete Routine';
-  let targetCals = Math.round((Number(app.profile.plannedMove)||500)*0.42);
-  let ex=[];
-
-  // Every generated day now includes the same professional structure:
-  // Cardio + Lower Body + Core + Posture + Rehab, with Wall Pilates and Chair variety rotated in.
-  if(p==='red' || p==='nerve'){
-    title = p==='nerve' ? 'Nerve-Safe Complete Recovery Routine' : 'Red Day Complete Recovery Routine';
-    ex = uniqueEx([
-      byId('chair-march'),                         // cardio
-      byId('chair-leg-ext-flow'),                  // lower body
-      byId('pelvic-tilt'),                         // core
-      byId('chair-posture-reset'),                 // posture
-      byId('elbow-rom'), byId('hand-open'),        // rehab
-      byId('wall-pilates-posture')                 // wall pilates gentle option
-    ]);
-    targetCals = 75;
-  } else if(p==='yellow'){
-    title = 'Yellow Day Complete Maintain Routine';
-    ex = uniqueEx([
-      ...safePick(['Walking','Conditioning','Chair'],p,1,1,variation),
-      ...safePick(['Lower Body','Chair','Wall Pilates'],p,1,2,variation+1),
-      ...safePick(['Core','Chair'],p,1,1,variation+2),
-      ...safePick(['Posture','Wall Pilates','Chair'],p,1,1,variation+3),
-      ...safePick('Rehab',p,1,2,variation+4)
-    ]);
-    targetCals = 130;
-  } else {
-    const idx=dayIndex();
-    const cardioCats = idx===5 ? ['Walking'] : ['Walking','Conditioning','Chair'];
-    const lowerCats = idx===1 || idx===4 ? ['Lower Body','Wall Pilates','Chair'] : ['Wall Pilates','Lower Body','Chair'];
-    const coreCats = ['Core','Chair'];
-    const postureCats = ['Posture','Wall Pilates','Chair'];
-    const rehabLevel = phase>=1 ? 2 : 1;
-    ex = uniqueEx([
-      ...safePick(cardioCats,p,Math.min(3,levelMax+1),1,variation+idx),
-      ...safePick(lowerCats,p,levelMax,3,variation+idx+1),
-      ...safePick(coreCats,p,levelMax,2,variation+idx+2),
-      ...safePick(postureCats,p,1,1,variation+idx+3),
-      ...safePick('Rehab',p,rehabLevel,2,variation+idx+4)
-    ]);
-    if(idx===0) title='Recovery + Complete Mobility Routine';
-    targetCals=[120,210,230,150,220,260,240][idx] + phase*25;
+function totalFood(){ return state.food.reduce((a,x)=>a+Number(x.calories||0),0); }
+function totalMove(){ return state.moves.reduce((a,x)=>a+Number(x.calories||0),0); }
+function render(){
+  const p=state.profile, c=calcProfile();
+  $('profileGate').classList.toggle('hidden', !!p);
+  $('helloText').textContent = p ? `Hi ${p.name || 'there'}, your safe plan` : 'Your safe plan';
+  document.querySelectorAll('.pain').forEach(b=>b.classList.toggle('active', b.dataset.pain===state.pain));
+  const painMsg={green:'Green day: full elbow-safe routine with controlled progression.',yellow:'Yellow day: complete routine but lighter. Maintain, do not progress.',red:'Red day: recovery routine only. Gentle movement and rehab.',nerve:'Nerve symptoms: safest routine only and consider assessment.'};
+  $('painMessage').textContent = painMsg[state.pain] || 'Choose your elbow status so CTA can select safe training.';
+  if(c){
+    const food=totalFood(), move=totalMove();
+    const foodLeft=c.idealIntake-food;
+    const moveLeft=Math.max(0,c.plannedMove-move);
+    $('idealIntake').textContent=`${c.idealIntake} cal`;
+    $('foodLeft').textContent= foodLeft>=0 ? `${foodLeft} cal` : `${Math.abs(foodLeft)} over`;
+    $('moveDone').textContent=`${move} / ${c.plannedMove}`;
+    $('moveLeft').textContent=`${moveLeft} cal`;
+    const loss=Number(state.profile.lossPerWeek);
+    $('safetyBadge').textContent = loss>3 ? 'Extreme goal' : loss>2 ? 'Very aggressive' : 'Calculated';
+    $('safetyBadge').classList.toggle('danger', loss>3);
+    $('foodBar').style.width=`${Math.min(100,Math.max(0,(food/c.idealIntake)*100))}%`;
+    $('moveBar').style.width=`${Math.min(100,Math.max(0,(move/c.plannedMove)*100))}%`;
+    let note = `Ideal intake is based on maintenance + ${c.plannedMove} movement calories - ${c.targetDeficit} target deficit.`;
+    if(foodLeft<0 && moveLeft>0) note = `You are ${Math.abs(foodLeft)} calories over food budget, but still have ${moveLeft} movement calories left. Use only elbow-safe movement.`;
+    else if(foodLeft<0) note = `You are ${Math.abs(foodLeft)} calories over today. Do not punish-train; use tomorrow or weekly balance.`;
+    else if(moveLeft>0) note = `You have ${foodLeft} food calories left and ${moveLeft} movement calories left.`;
+    else note = `Movement target complete. You have ${foodLeft} food calories left.`;
+    $('balanceNote').textContent=note;
   }
-  const cals=Math.round(ex.reduce((a,e)=>a+(e.cals||0),0));
-  const mins=Math.round(ex.reduce((a,e)=>a+(e.mins||0),0));
-  return {title, rule, phase:phases[phase], week:weekNumber(), ex, cals: Math.max(cals,targetCals), mins, weekday};
+  renderLogs(); renderLibrary();
 }
-function progressionCue(){ const phase=phaseIndex(); if(day().pain!=='green') return 'No progression today. Maintain or recover.'; return ['Add 1–2 reps only if no next-day flare.','Add one small set to one exercise only.','Use slower 3-second lowering or holds.','Use circuit flow or slightly shorter rest.'][phase]; }
-
-function updatePainUI(){ const p=day().pain; document.querySelectorAll('.pain-option').forEach(b=>b.classList.toggle('selected',b.dataset.pain===p)); const m={green:['🛡️','Green day detected','You can train safely today. The app will still avoid gripping and elbow loading.'],yellow:['⚠️','Yellow day detected','Maintain only. The app will avoid progression and choose light movement.'],red:['🛑','Red day detected','Recovery only. Do not chase calorie burn today.'],nerve:['⚡','Nerve symptoms selected','Avoid loading. Consider medical assessment if numbness or tingling persists.']}[p]; document.getElementById('painBanner').innerHTML=`<span>${m[0]}</span><p><strong>${m[1]}</strong> — ${m[2]}</p>`; }
-function updateBudget(){ const ideal=idealIntake(), food=sum(day().food), move=sum(day().workouts), planned=Number(app.profile.plannedMove)||500; const foodLeft=ideal-food, moveLeft=planned-move; document.getElementById('idealCalories').textContent=app.profile.configured?ideal:'—'; document.getElementById('idealSubtitle').textContent=app.profile.configured?'based on your goal + movement plan':'set profile first'; document.getElementById('foodLogged').textContent=food; document.getElementById('moveDone').textContent=move; document.getElementById('foodBudgetSmall').textContent=ideal; document.getElementById('moveTargetSmall').textContent=planned; document.getElementById('moveBudgetSmall').textContent=planned; document.getElementById('foodLeft').textContent=foodLeft>=0?`${foodLeft} cal left`:`${Math.abs(foodLeft)} cal over`; document.getElementById('moveLeft').textContent=moveLeft>0?`${moveLeft} cal left`:'Workout goal complete'; document.getElementById('foodRing').style.setProperty('--p',Math.min(100, food/ideal*100)); document.getElementById('moveRing').style.setProperty('--p',Math.min(100, move/planned*100)); document.getElementById('sumFood').textContent=food; document.getElementById('sumMove').textContent=move; document.getElementById('sumIdeal').textContent=ideal; document.getElementById('sumPain').textContent=day().pain;
-  const balanceTitle=document.getElementById('balanceTitle'), balanceIcon=document.getElementById('balanceIcon'), note=document.getElementById('balanceNote'); const painful=day().pain==='red'||day().pain==='nerve'; if(!app.profile.configured){balanceTitle.textContent='Set Profile'; balanceIcon.textContent='👤'; note.textContent='Enter your information so the app can calculate your ideal intake.';} else if(foodLeft>=300 && moveLeft<=0){balanceTitle.textContent='Great Balance'; balanceIcon.textContent='✅'; note.textContent=`Movement goal is complete and you still have ${foodLeft} food calories left.`;} else if(foodLeft>=0 && moveLeft>0){balanceTitle.textContent='On Track'; balanceIcon.textContent='✅'; note.textContent=`You have ${foodLeft} calories left. Complete ${moveLeft} more safe movement calories to support today’s budget.`;} else if(foodLeft<0 && moveLeft>0 && !painful){balanceTitle.textContent='Recoverable'; balanceIcon.textContent='🎯'; note.textContent=`You are ${Math.abs(foodLeft)} calories over food target, but still have movement left. Choose safe walking, not elbow-loading exercise.`;} else if(foodLeft<0 && painful){balanceTitle.textContent='Over Target — Protect Elbows'; balanceIcon.textContent='🛑'; note.textContent=`You are ${Math.abs(foodLeft)} calories over, but today is not a day to punish-train. Use the weekly bank.`;} else {balanceTitle.textContent='Tight but Okay'; balanceIcon.textContent='⚠️'; note.textContent='Keep the next meal controlled. Do not add painful exercise.';} }
-function renderTrainer(){ const s=generateSession(); document.getElementById('trainerHero').innerHTML=`<h3>${s.rule.title}</h3><p>${s.rule.note}</p><div class="trainer-meta"><span class="tag green">Week ${s.week}</span><span class="tag blue">${s.phase.name}</span><span class="tag">${s.title}</span><span class="tag warn">${s.cals} cal est.</span><span class="tag">${s.mins} min total</span></div><p><b>Progression:</b> ${progressionCue()}</p>`; document.getElementById('todaySession').innerHTML=s.ex.slice(0,7).map(e=>exerciseRow(e)).join(''); document.getElementById('generatorSummary').innerHTML=`<p><b>Today’s mode:</b> ${s.rule.mode}</p><p><b>Chosen plan:</b> ${s.title} · ${s.phase.name} · Week ${s.week}</p><p><b>Why:</b> Pain status is ${day().pain}. ${s.rule.note}</p>`; renderGeneratedWorkout(); }
-function exerciseRow(e){ return `<div class="exercise-row"><div><h4>${e.title}</h4><p>${e.prescription}<small>${e.setup}<br><b>Stop rule:</b> ${e.stop}</small></p></div><span class="tag">${e.mins} min · ${e.cals} cal</span></div>`; }
-function renderGeneratedWorkout(){ const s=generateSession(); document.getElementById('generatedWorkout').innerHTML=`<div class="trainer-hero"><h3>${s.title}</h3><p>${s.phase.focus}</p><div class="trainer-meta"><span class="tag green">${s.cals} cal est.</span><span class="tag">${s.mins} min</span><span class="tag blue">${s.phase.name}</span></div></div>${s.ex.map(e=>exerciseRow(e)).join('')}<div class="helper-row"><button id="addGeneratedInside">Add this workout to today</button><button class="secondary" id="markSessionDone">Mark done, no calorie add</button></div>`; document.getElementById('addGeneratedInside').onclick=addRecommended; document.getElementById('markSessionDone').onclick=()=>{ day().sessionDone=true; save(); renderAll(); alert('Session marked complete.'); }; }
-function renderPlan(){ const p=day().pain, s=generateSession(); let items=[]; if(p==='green') items=[['🚶','Move',`${Number(app.profile.plannedMove)||500} cal target`,`Suggested: ${s.title}`],['🦵','Strength',s.phase.name,progressionCue()],['💜','Rehab','Elbow mobility','Pain-free only'],['🍴','Food Focus','Stay within budget','Protein each meal']]; else if(p==='yellow') items=[['🚶','Move','Easy walk','No intense intervals'],['🧘','Recovery Core','Back/seated only','No planks'],['💜','Rehab','Mobility only','No progression'],['🍴','Food Focus','Control dinner','Do not chase burn']]; else items=[['🌿','Recover','Gentle walk only','If comfortable'],['🪑','Chair Cardio','Optional easy','No calorie chasing'],['💜','Rehab','Gentle ROM','No isometrics'],['🍴','Food Focus','Use food budget','Weekly bank ok']]; document.getElementById('todayPlan').innerHTML=items.map(x=>`<div class="plan-item"><span>${x[0]}</span><div><strong>${x[1]}</strong><p>${x[2]}<br><small>${x[3]}</small></p></div></div>`).join(''); }
-function renderEntries(){ const entries=[...day().food.map((x,i)=>({...x,type:'food',i})),...day().workouts.map((x,i)=>({...x,type:'workout',i}))]; document.getElementById('entryList').innerHTML=entries.length?entries.map(e=>`<div class="entry"><div><strong>${e.type==='food'?'🍏':'👟'} ${e.name}</strong><small>${e.qty || (e.mins||0)+' min'} · ${e.meal || e.kind} · ${e.cals} cal</small></div><button data-deltype="${e.type}" data-delindex="${e.i}">Delete</button></div>`).join(''):'<p class="hint">No entries yet today.</p>'; document.querySelectorAll('[data-deltype]').forEach(btn=>btn.onclick=()=>{ const arr=btn.dataset.deltype==='food'?day().food:day().workouts; arr.splice(Number(btn.dataset.delindex),1); save(); renderAll(); }); }
-function renderLibrary(){ const q=(document.getElementById('foodSearch')?.value||'').toLowerCase(); const foodEntries=Object.entries(allFoods()).filter(([name,v])=>!q || name.includes(q) || (v.cat||'').toLowerCase().includes(q)); document.getElementById('foodLibrary').innerHTML=foodEntries.map(([name,v])=>`<div class="library-food"><strong>${name}</strong><span>${v.qty} · ${v.cals} cal · ${v.cat||'Food'}</span><button class="secondary tiny" data-foodpick="${name.replace(/"/g,'&quot;')}">Use</button></div>`).join('') || '<p class="hint">No match. Use Travel Estimate or save it as a custom food.</p>'; document.querySelectorAll('[data-foodpick]').forEach(btn=>btn.onclick=()=>{ const f=allFoods()[btn.dataset.foodpick]; switchTab('log'); document.getElementById('foodName').value=btn.dataset.foodpick; document.getElementById('foodQty').value=f.qty; document.getElementById('foodCals').value=f.cals; setTimeout(()=>document.getElementById('foodName').scrollIntoView({behavior:'smooth',block:'center'}),100); }); const cats=['all',...new Set(exercises.map(e=>e.cat))]; document.getElementById('workoutFilters').innerHTML=cats.map(c=>`<button class="${app.trainer.filter===c?'active':''}" data-filter="${c}">${c}</button>`).join(''); document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{ app.trainer.filter=b.dataset.filter; save(); renderLibrary(); }); const filter=app.trainer.filter; document.getElementById('exerciseLibrary').innerHTML=exercises.filter(e=>filter==='all'||e.cat===filter).map(e=>`<div class="library-card"><h4>${e.title}</h4><p>${e.prescription}</p><div class="trainer-meta"><span class="tag">${e.cat}</span><span class="tag green">Level ${e.level}</span><span class="tag">${e.mins} min</span><span class="tag warn">${e.safe.join(', ')}</span></div><p class="hint"><b>Setup:</b> ${e.setup}<br><b>Stop:</b> ${e.stop}</p></div>`).join(''); }
-function renderPhaseMap(){ const ix=phaseIndex(); document.getElementById('phaseMap').innerHTML=phases.map((p,i)=>`<div class="phase ${i===ix?'active':''}"><strong>${p.name}</strong><p>Weeks ${p.weeks}</p><small>${p.focus}<br><b>${p.progress}</b></small></div>`).join(''); }
-function renderBody(){ const hist=Object.entries(app.days).flatMap(([date,d])=>(d.body||[]).map(b=>({...b,date}))).slice(-10).reverse(); document.getElementById('bodyHistory').innerHTML=hist.length?hist.map(b=>`<div class="entry"><div><strong>${b.date}</strong><small>Weight: ${b.weight||'—'} · Waist: ${b.waist||'—'}</small></div></div>`).join(''):'<p class="hint">No body check-ins yet.</p>'; const trend=Object.entries(app.days).slice(-14).reverse().map(([date,d])=>`<div class="entry"><div><strong>${date}</strong><small>Pain: ${d.pain} · Food ${sum(d.food)} cal · Movement ${sum(d.workouts)} cal · ${d.sessionDone?'session done':'session not marked'}</small></div></div>`).join(''); document.getElementById('trainingTrend').innerHTML=trend||'<p class="hint">No trend yet.</p>'; }
-function updateProfileUI(){ document.getElementById('setupCard').style.display=app.profile.configured?'none':'block'; document.getElementById('profileStatus').textContent=app.profile.configured?'Profile Set':'Set Profile'; const ideal=idealIntake(), rating=safetyRating(ideal); const preview=document.getElementById('profileCalcPreview'); if(preview) preview.innerHTML=`Estimated maintenance: <b>${app.profile.maintenance||calculateMaintenance()}</b> cal/day<br>Target daily deficit: <b>${targetDeficit()}</b> cal/day<br>Ideal intake with planned movement: <b>${ideal}</b> cal/day<br>Safety rating: <b>${rating[0]}</b> — ${rating[1]}`; }
-function renderAll(){ formatDate(); updateProfileUI(); updatePainUI(); updateBudget(); renderTrainer(); renderPlan(); renderEntries(); renderLibrary(); renderPhaseMap(); renderBody(); }
-function switchTab(tab){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(tab+'Screen').classList.add('active'); document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab)); window.scrollTo({top:0,behavior:'smooth'}); }
-function openGeneratedWorkout(){ renderTrainer(); switchTab('train'); setTimeout(()=>{ const el=document.getElementById('generatedWorkoutCard') || document.getElementById('generatedWorkout'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); },120); }
-function addRecommended(){ const s=generateSession(); day().workouts.push({name:`Generated: ${s.title}`, mins:s.mins, cals:s.cals, kind:'Generated Workout'}); day().sessionDone=true; day().sessionKey=`${todayKey()}-${app.trainer.variation}`; save(); renderAll(); switchTab('today'); }
-
-function lookupFoodQuery(){
-  const name=(document.getElementById('foodName')?.value||'').trim();
-  const qty=(document.getElementById('foodQty')?.value||'').trim();
-  const q=[qty,name,'calories'].filter(Boolean).join(' ').trim();
-  return q || 'food calories';
+function renderLogs(){
+  $('foodLog').innerHTML = state.food.slice().reverse().map(x=>`<div class="log-item"><div><strong>${x.food}</strong><small>${x.meal} • ${x.qty||''}</small></div><strong>${x.calories} cal</strong></div>`).join('') || '<p class="coach-note">No food logged yet.</p>';
+  $('movementLog').innerHTML = state.moves.slice().reverse().map(x=>`<div class="log-item"><div><strong>${x.type}</strong><small>${x.source} • ${x.minutes||0} min • ${x.steps||0} steps</small></div><strong>${x.calories} cal</strong></div>`).join('') || '<p class="coach-note">No movement imported yet.</p>';
+  $('progressLog').innerHTML = state.checkins.slice().reverse().map(x=>`<div class="log-item"><div><strong>${x.date}</strong><small>Waist: ${x.waist||'—'}</small></div><strong>${x.weight||'—'}</strong></div>`).join('') || '<p class="coach-note">No check-ins yet.</p>';
 }
-function updateOnlineLookupResult(){
-  const box=document.getElementById('onlineLookupResult');
-  if(!box) return;
-  const q=lookupFoodQuery();
-  box.innerHTML=`Search text: <b>${q}</b><br><small>After checking online, enter calories above, then tap Add Food or Save to My Foods.</small>`;
+function renderLibrary(){
+  $('libraryList').innerHTML = Object.entries(libraries).map(([k,arr])=>`<div class="lib-section"><h3>${label(k)}</h3>${arr.map(v=>`<span class="pill ${k==='locked'?'danger':''}">${v}</span>`).join('')}</div>`).join('');
 }
-function openOnlineFoodLookup(type='google'){
-  const q=lookupFoodQuery();
-  const url = type==='usda'
-    ? `https://fdc.nal.usda.gov/fdc-app.html#/?query=${encodeURIComponent(q.replace(/calories/ig,'').trim())}`
-    : `https://www.google.com/search?q=${encodeURIComponent(q)}`;
-  window.open(url, '_blank', 'noopener,noreferrer');
-  updateOnlineLookupResult();
+function label(k){return {cardio:'Cardio',lower:'Lower Body',core:'Core',posture:'Posture',rehab:'Rehab',wallPilates:'Wall Pilates',chair:'Chair Exercises',locked:'Locked For Now'}[k]||k}
+
+function buildRoutine(kind='best'){
+  const pain=state.pain||'green', focus=$('focusInput').value, week=Number($('weekInput').value||1);
+  const phase = week<=4?'Foundation':week<=8?'Volume':week<=12?'Tempo':week<=16?'Density':'Next Cycle';
+  const isRed=pain==='red'||pain==='nerve';
+  const isYellow=pain==='yellow';
+  let title = kind==='easy'?'Easier Coach Option':kind==='burn'?'Calorie-Focused Option':'Best Coach Choice';
+  let minutes = isRed?18:isYellow?25:(kind==='burn'||focus==='burn'?42:32);
+  let burn = isRed?'40–90':isYellow?'80–160':(kind==='burn'||focus==='burn'?'220–420':'140–260');
+  const pick=(arr,i)=>arr[(week+i)%arr.length];
+  const routine=[];
+  if(isRed){
+    routine.push(['Cardio', 'Easy walk or chair march', '5–10 min, very easy']);
+    routine.push(['Lower Body', pick(libraries.chair,1), '2 sets, gentle']);
+    routine.push(['Core', 'Pelvic tilt', '2 x 8']);
+    routine.push(['Posture', 'Wall posture reset', '2 min']);
+    routine.push(['Rehab', pain==='nerve'?'Gentle hand opening':'Elbow bend and straighten', '1–2 x 10, pain-free']);
+    routine.push(['Wall Pilates', 'Legs-up-the-wall recovery', '3–5 min']);
+  } else {
+    routine.push(['Cardio', kind==='burn'||focus==='burn'? 'Brisk interval walk':'Easy walk + step-touch', kind==='burn'||focus==='burn'? '30–40 min intervals':'15–25 min']);
+    routine.push(['Lower Body', pick(libraries.lower,2), phase==='Tempo'?'3 x 8 slow 3-sec lower':'3 x 10–12']);
+    routine.push(['Core', pick(libraries.core,3), '2–3 sets, no planks']);
+    routine.push(['Posture', pick(libraries.posture,4), '2 x 8 or 2 min']);
+    routine.push(['Rehab', isYellow?'Mobility only':pick(libraries.rehab,5), isYellow?'1–2 x 10, no progression':'5 gentle holds or 2 x 10']);
+    routine.push(['Wall Pilates', pick(libraries.wallPilates,6), phase==='Density'?'2–3 timed rounds':'2 sets']);
+    routine.push(['Chair', pick(libraries.chair,7), 'Optional finisher, 3–6 min']);
+  }
+  return {title, phase, minutes, burn, routine, kind};
 }
-async function copyLookupText(){
-  const q=lookupFoodQuery();
-  try{ await navigator.clipboard.writeText(q); document.getElementById('onlineLookupResult').innerHTML=`Copied: <b>${q}</b><br><small>Paste this into any calorie counter, then enter calories above.</small>`; }
-  catch(e){ prompt('Copy this search text:', q); }
+function renderOptions(){
+  const options=[buildRoutine('best'),buildRoutine('easy'),buildRoutine('burn')];
+  $('coachOptions').innerHTML=options.map((o,i)=>`<div class="option"><h3>${o.title}</h3><p class="coach-note">${o.phase} • ${o.minutes} min • est. ${o.burn} cal</p>${o.routine.slice(0,5).map(r=>`<span class="pill">${r[0]}</span>`).join('')}<button class="primary full" onclick="startWorkout(${i})">Start this workout</button></div>`).join('');
+  window._workoutOptions=options;
+}
+window.startWorkout=function(i){
+  const o=window._workoutOptions[i];
+  $('activeWorkout').classList.remove('hidden');
+  $('activeWorkout').innerHTML=`<p class="eyebrow">Active Workout</p><h2>${o.title}</h2><p class="coach-note">${o.phase} • ${o.minutes} min • estimated ${o.burn} calories. No gripping, no all-fours, no elbow weight-bearing.</p>${o.routine.map(r=>`<div class="exercise"><h4>${r[0]} — ${r[1]}</h4><p class="coach-note">${r[2]}</p></div>`).join('')}<div class="grid two"><label>Calories to log <input id="finishCal" type="number" placeholder="e.g. 180" /></label><label>Minutes <input id="finishMin" type="number" value="${o.minutes}" /></label></div><button class="primary full" onclick="finishWorkout('${o.title.replace(/'/g,'')}')">Finish + Log Workout</button>`;
+  $('activeWorkout').scrollIntoView({behavior:'smooth',block:'start'});
+}
+window.finishWorkout=function(title){
+  const calories=Number($('finishCal').value||0), minutes=Number($('finishMin').value||0);
+  if(!calories){ alert('Enter estimated calories from your watch, Apple Health, Garmin, or estimate.'); return; }
+  state.moves.push({date:todayKey(),source:'CTA workout',type:title,minutes,steps:0,calories}); save(); render(); alert('Workout logged.');
 }
 
-document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
-document.querySelectorAll('[data-open-generated]').forEach(b=>b.addEventListener('click',openGeneratedWorkout));
-document.querySelectorAll('.pain-option').forEach(b=>b.addEventListener('click',()=>{ day().pain=b.dataset.pain; save(); renderAll(); }));
-document.querySelectorAll('[data-modal]').forEach(b=>b.addEventListener('click',()=>{ const m=document.getElementById(b.dataset.modal); if(m) m.showModal(); }));
-document.querySelector('[data-action="openFood"]').onclick=()=>switchTab('log'); document.querySelector('[data-action="openWorkout"]').onclick=()=>switchTab('log');
-document.getElementById('refreshPlanBtn').onclick=()=>{ app.trainer.variation=(app.trainer.variation+1)%7; save(); renderAll(); };
-document.getElementById('generateBtn').onclick=openGeneratedWorkout;
-document.getElementById('nextVarBtn').onclick=()=>{ app.trainer.variation=(app.trainer.variation+1)%7; save(); renderAll(); };
-document.getElementById('addRecommendedBtn').onclick=addRecommended;
-
-document.getElementById('estimateFoodBtn').onclick=()=>{ const key=document.getElementById('foodName').value.trim(); const found=findFoodEstimate(key); if(found){document.getElementById('foodName').value=found.name; document.getElementById('foodQty').value=found.qty; document.getElementById('foodCals').value=found.cals;} else alert('No exact match yet. Use Travel Estimate or enter calories manually, then save it to My Foods.'); };
-
-document.getElementById('onlineFoodBtn')?.addEventListener('click',()=>openOnlineFoodLookup('google'));
-document.getElementById('googleCaloriesBtn')?.addEventListener('click',()=>openOnlineFoodLookup('google'));
-document.getElementById('usdaCaloriesBtn')?.addEventListener('click',()=>openOnlineFoodLookup('usda'));
-document.getElementById('copyLookupBtn')?.addEventListener('click',copyLookupText);
-['foodName','foodQty'].forEach(id=>document.getElementById(id)?.addEventListener('input',updateOnlineLookupResult));
-
-document.getElementById('addFoodBtn').onclick=()=>{ const name=document.getElementById('foodName').value.trim(), qty=document.getElementById('foodQty').value.trim(), cals=Number(document.getElementById('foodCals').value), meal=document.getElementById('mealType').value; if(!name||!cals) return alert('Please enter food name and calories.'); day().food.push({name,qty,cals,meal}); ['foodName','foodQty','foodCals'].forEach(id=>document.getElementById(id).value=''); save(); renderAll(); };
-document.getElementById('estimateWorkoutBtn').onclick=()=>{ const mins=Number(document.getElementById('workoutMins').value||0); if(!mins) return alert('Enter minutes first.'); document.getElementById('workoutName').value ||= 'Walking'; document.getElementById('workoutCals').value=Math.round(mins*5); };
-document.getElementById('addWorkoutBtn').onclick=()=>{ const name=document.getElementById('workoutName').value.trim(), mins=Number(document.getElementById('workoutMins').value), cals=Number(document.getElementById('workoutCals').value), kind=document.getElementById('workoutType').value; if(!name||!cals) return alert('Please enter activity name and calories.'); day().workouts.push({name,mins,cals,kind}); ['workoutName','workoutMins','workoutCals'].forEach(id=>document.getElementById(id).value=''); save(); renderAll(); };
-
-
-document.getElementById('travelEstimateBtn')?.addEventListener('click',()=>{ const est=travelEstimate(); document.getElementById('travelEstimateResult').innerHTML=`Estimated range: <b>${est.low}–${est.high} cal</b> · midpoint <b>${est.mid} cal</b><br><small>Travel estimates are intentionally ranges. Use high estimate for fried/creamy/large restaurant portions.</small>`; document.getElementById('foodCals').value=est.mid; document.getElementById('foodQty').value=document.getElementById('travelPortion').value + ' travel portion'; if(!document.getElementById('foodName').value.trim()) document.getElementById('foodName').value='Travel meal estimate'; });
-document.getElementById('saveCustomFoodBtn')?.addEventListener('click',()=>{ const name=document.getElementById('foodName').value.trim(); const qty=document.getElementById('foodQty').value.trim()||'1 serving'; const cals=Number(document.getElementById('foodCals').value); if(!name||!cals) return alert('Enter food name and calories first.'); app.customFoods=app.customFoods||[]; const existing=app.customFoods.findIndex(f=>f.name.toLowerCase()===name.toLowerCase()); const item={name,qty,cals}; if(existing>=0) app.customFoods[existing]=item; else app.customFoods.push(item); save(); renderLibrary(); alert('Saved to My Foods.'); });
-document.getElementById('foodSearch')?.addEventListener('input',renderLibrary);
-
-document.getElementById('goalModal').addEventListener('show',()=>{ document.getElementById('maintenanceInput').value=app.profile.maintenance||calculateMaintenance(); document.getElementById('lossInput').value=app.profile.lossPerWeek; document.getElementById('plannedMoveInput').value=app.profile.plannedMove; });
-document.getElementById('saveGoalBtn').onclick=()=>{ app.profile.maintenance=Number(document.getElementById('maintenanceInput').value||2100); app.profile.lossPerWeek=Number(document.getElementById('lossInput').value||1.5); app.profile.plannedMove=Number(document.getElementById('plannedMoveInput').value||500); save(); renderAll(); };
-document.getElementById('saveBodyBtn').onclick=()=>{ const weight=document.getElementById('weightInput').value, waist=document.getElementById('waistInput').value; if(!weight&&!waist) return alert('Enter weight or waist.'); day().body.push({weight,waist,time:new Date().toLocaleTimeString()}); document.getElementById('weightInput').value=''; document.getElementById('waistInput').value=''; save(); renderAll(); };
-
-function fillProfileModal(){ document.getElementById('profileName').value=app.profile.name||''; document.getElementById('profileSex').value=app.profile.sex||'female'; document.getElementById('profileAge').value=app.profile.age||''; document.getElementById('profileUnit').value=app.profile.weightUnit||'lb'; document.getElementById('profileWeight').value=app.profile.weight||''; document.getElementById('profileHeightUnit').value=app.profile.heightUnit||'cm'; document.getElementById('profileHeightCm').value=app.profile.heightCm||''; document.getElementById('profileHeightFt').value=app.profile.heightFt||''; document.getElementById('profileHeightIn').value=app.profile.heightIn||''; document.getElementById('profileActivity').value=String(app.profile.activity||1.2); document.getElementById('profileLoss').value=String(app.profile.lossPerWeek||1.5); document.getElementById('profileMove').value=app.profile.plannedMove||500; toggleHeightMode(); updateProfileUI(); }
-function collectProfile(){ app.profile.name=document.getElementById('profileName').value.trim()||'Aileen'; app.profile.sex=document.getElementById('profileSex').value; app.profile.age=Number(document.getElementById('profileAge').value||0); app.profile.weightUnit=document.getElementById('profileUnit').value; app.profile.weight=Number(document.getElementById('profileWeight').value||0); app.profile.heightUnit=document.getElementById('profileHeightUnit').value; app.profile.heightCm=Number(document.getElementById('profileHeightCm').value||0); app.profile.heightFt=Number(document.getElementById('profileHeightFt').value||0); app.profile.heightIn=Number(document.getElementById('profileHeightIn').value||0); app.profile.activity=Number(document.getElementById('profileActivity').value||1.2); app.profile.lossPerWeek=Number(document.getElementById('profileLoss').value||1.5); app.profile.plannedMove=Number(document.getElementById('profileMove').value||500); app.profile.maintenance=calculateMaintenance(); if(!app.profile.startDate) app.profile.startDate=todayKey(); }
-function toggleHeightMode(){ const mode=document.getElementById('profileHeightUnit')?.value||'cm'; document.getElementById('heightCmLabel')?.classList.toggle('hidden',mode!=='cm'); document.getElementById('heightFtLabel')?.classList.toggle('hidden',mode!=='ftin'); }
-document.getElementById('profileModal').addEventListener('show',fillProfileModal); document.getElementById('profileHeightUnit').addEventListener('change',toggleHeightMode); document.getElementById('calcProfileBtn').onclick=()=>{ collectProfile(); updateProfileUI(); };
-document.getElementById('saveProfileBtn').onclick=()=>{ collectProfile(); if(!app.profile.age||!app.profile.weight||!heightCm()) return alert('Please enter age, weight, and height so the app can compute your calories.'); app.profile.configured=true; save(); renderAll(); };
-setTimeout(()=>{ if(!app.profile.configured) document.getElementById('profileModal').showModal(); },400);
-renderAll();
+// Events
+$('heightUnit').addEventListener('change',()=>{document.querySelectorAll('.height-cm').forEach(x=>x.classList.toggle('hidden',$('heightUnit').value!=='cm'));document.querySelectorAll('.height-ft').forEach(x=>x.classList.toggle('hidden',$('heightUnit').value!=='ftin'));});
+$('saveProfileBtn').onclick=()=>{ state.profile={name:$('nameInput').value||'Aileen',age:Number($('ageInput').value),sex:$('sexInput').value,weightUnit:$('weightUnit').value,weight:Number($('weightInput').value||0),heightUnit:$('heightUnit').value,heightCm:Number($('heightCm').value||0),heightFt:Number($('heightFt').value||0),heightIn:Number($('heightIn').value||0),activity:$('activityInput').value,lossPerWeek:$('lossInput').value,plannedMove:Number($('plannedMoveInput').value||500)}; if(!state.profile.weight){alert('Please enter your current weight.');return;} save(); render(); };
+$('editProfileBtn').onclick=()=>{$('profileGate').classList.remove('hidden'); window.scrollTo({top:0,behavior:'smooth'});};
+document.querySelectorAll('.pain').forEach(b=>b.onclick=()=>{state.pain=b.dataset.pain; save(); render();});
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab,.tab-panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.tab).classList.add('active');});
+$('generateBtn').onclick=()=>{ renderOptions(); setTimeout(()=>$('coachOptions').scrollIntoView({behavior:'smooth',block:'start'}),50); };
+$('estimateBtn').onclick=()=>{ const q=(`${$('qtyInput').value} ${$('foodInput').value}`).toLowerCase(); let found=foodDb.find(([name])=> q.includes(name.split(' ')[0]) && q.includes(name.split(' ')[1]||'')); if(found){$('calInput').value=found[1];} else {$('calInput').value=350; $('copyNote').textContent='Unknown food: default estimate entered. Use online lookup for better accuracy.';} };
+$('addFoodBtn').onclick=()=>{ if(!$('foodInput').value||!$('calInput').value){alert('Enter food and calories.');return;} state.food.push({date:todayKey(),meal:$('mealInput').value,food:$('foodInput').value,qty:$('qtyInput').value,calories:Number($('calInput').value)}); $('foodInput').value='';$('qtyInput').value='';$('calInput').value=''; save(); render(); };
+function searchPhrase(){return `calories ${$('qtyInput').value} ${$('foodInput').value}`.trim();}
+$('googleBtn').onclick=()=>{window.open('https://www.google.com/search?q='+encodeURIComponent(searchPhrase()),'_blank');};
+$('usdaBtn').onclick=()=>{window.open('https://fdc.nal.usda.gov/fdc-app.html#/?query='+encodeURIComponent(`${$('qtyInput').value} ${$('foodInput').value}`),'_blank');};
+$('copySearchBtn').onclick=async()=>{await navigator.clipboard.writeText(searchPhrase()); $('copyNote').textContent=`Copied: ${searchPhrase()}`;};
+$('estimateMoveBtn').onclick=()=>{ const min=Number($('minutesInput').value||0); const type=$('workoutTypeInput').value; let rate= type==='Walking'?4:type==='Wall Pilates'?3:type==='Chair workout'?2.5:type==='Lower-body strength'?4.5:3; $('activeCalInput').value=Math.round(min*rate); };
+$('importMoveBtn').onclick=()=>{ if(!$('activeCalInput').value){alert('Enter active calories, or estimate from minutes.');return;} state.moves.push({date:todayKey(),source:$('sourceInput').value,type:$('workoutTypeInput').value,steps:Number($('stepsInput').value||0),minutes:Number($('minutesInput').value||0),calories:Number($('activeCalInput').value)}); ['stepsInput','minutesInput','activeCalInput'].forEach(id=>$(id).value=''); save(); render(); };
+$('saveCheckinBtn').onclick=()=>{state.checkins.push({date:todayKey(),weight:$('checkWeight').value,waist:$('checkWaist').value}); save(); render();};
+$('resetDayBtn').onclick=()=>{if(confirm('Clear today food, movement, and pain status?')){state.food=[];state.moves=[];state.pain=null;state.date=todayKey();save();render();}};
+$('focusInput').onchange=()=>{state.prefs.focus=$('focusInput').value;save();};
+render();

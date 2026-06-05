@@ -2,114 +2,193 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CTA — Conditioning Training App</title>
-  <meta name="theme-color" content="#f7fbf5" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CTA — Conditioning Training App v3.0</title>
+  <meta name="description" content="Conditioning Training App for injury-aware weight loss, movement, food tracking, and adaptive workouts." />
+  <meta name="theme-color" content="#315c4c" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="app-shell">
-    <header class="topbar">
-      <div class="brand-block">
-        <div class="app-version">Version 2.0</div>
-        <h1 id="appName">CTA</h1>
-        <p class="app-subtitle"><strong>Conditioning Training App</strong></p>
-        <p id="greeting">Good morning 👋</p>
-        <p>Smart weight loss training that protects your elbows.</p>
+    <header class="hero">
+      <div>
+        <p class="version">Version 3.0</p>
+        <h1>CTA</h1>
+        <p class="subtitle">Conditioning Training App</p>
       </div>
-      <div class="header-tools">
-        <button class="profile-pill" data-modal="profileModal">👤 <span id="profileStatus">Set Profile</span></button>
-        <div class="date-pill"><span>📅</span><div><strong id="dateText">Today</strong><small id="dayText"></small></div></div>
-      </div>
+      <button class="ghost" id="resetDayBtn">Reset Today</button>
     </header>
 
     <main>
-      <section class="screen active" id="todayScreen">
-        <article class="card setup-card" id="setupCard">
-          <div class="card-head"><div class="step-title"><span class="step-num">0</span><h2>Profile Setup Required</h2></div><button class="link-btn" data-modal="profileModal">Set up now ›</button></div>
-          <p><strong>Your calorie budget and training level need your information.</strong> Enter age, sex, height, weight, goal, and workout target first.</p>
-        </article>
+      <section id="profileGate" class="card profile-gate hidden">
+        <h2>Set up your calorie profile</h2>
+        <p>CTA needs your information to calculate ideal intake and your movement target.</p>
+        <div class="grid two">
+          <label>Name <input id="nameInput" placeholder="Aileen" /></label>
+          <label>Age <input id="ageInput" type="number" min="18" max="100" value="56" /></label>
+          <label>Sex
+            <select id="sexInput"><option value="female">Female</option><option value="male">Male</option></select>
+          </label>
+          <label>Weight unit
+            <select id="weightUnit"><option value="lb">lb</option><option value="kg">kg</option></select>
+          </label>
+          <label>Current weight <input id="weightInput" type="number" step="0.1" placeholder="150" /></label>
+          <label>Height unit
+            <select id="heightUnit"><option value="cm">cm</option><option value="ftin">ft / in</option></select>
+          </label>
+          <label class="height-cm">Height cm <input id="heightCm" type="number" placeholder="160" /></label>
+          <label class="height-ft hidden">Feet <input id="heightFt" type="number" placeholder="5" /></label>
+          <label class="height-ft hidden">Inches <input id="heightIn" type="number" placeholder="3" /></label>
+          <label>Usual activity
+            <select id="activityInput">
+              <option value="1.2">Mostly seated</option>
+              <option value="1.375">Light activity</option>
+              <option value="1.55">Moderate activity</option>
+            </select>
+          </label>
+          <label>Target loss / week
+            <select id="lossInput">
+              <option value="0.5">0.5 lb</option><option value="1">1 lb</option><option value="1.5" selected>1.5 lb</option><option value="2">2 lb</option><option value="2.5">2.5 lb</option><option value="3">3 lb</option><option value="3.5">3.5 lb</option><option value="4">4 lb</option><option value="4.5">4.5 lb</option><option value="5">5 lb</option>
+            </select>
+          </label>
+          <label>Planned movement calories / day <input id="plannedMoveInput" type="number" value="500" min="0" max="1500" /></label>
+        </div>
+        <button class="primary full" id="saveProfileBtn">Save Profile</button>
+      </section>
 
-        <article class="card elbow-card">
-          <div class="card-head"><div class="step-title"><span class="step-num">1</span><h2>Elbow Status</h2></div><button class="link-btn" data-modal="elbowInfo">Rules ⓘ</button></div>
-          <p class="card-question">How are your elbows today?</p>
-          <div class="pain-grid" role="group" aria-label="Elbow pain status">
-            <button class="pain-option green selected" data-pain="green"><span>🙂</span><strong>0–2</strong><small>Green</small></button>
-            <button class="pain-option yellow" data-pain="yellow"><span>😐</span><strong>3</strong><small>Yellow</small></button>
-            <button class="pain-option red" data-pain="red"><span>☹️</span><strong>4+</strong><small>Red</small></button>
-            <button class="pain-option purple" data-pain="nerve"><span>⚡</span><strong>Nerve</strong><small>Numb / tingle</small></button>
+      <section class="card today-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Today</p>
+            <h2 id="helloText">Your safe plan</h2>
           </div>
-          <div class="status-banner" id="painBanner"></div>
-        </article>
+          <button class="small" id="editProfileBtn">Profile</button>
+        </div>
 
-        <article class="card budget-card">
-          <div class="card-head"><div class="step-title"><span class="step-num">2</span><h2>Today’s Calorie Budget</h2></div><button class="link-btn" data-modal="budgetInfo">How it works ⓘ</button></div>
-          <p>Your ideal intake is based on your profile, goal, and planned workout calories.</p>
-          <div class="budget-grid">
-            <div class="budget-main"><small>Ideal Intake</small><strong><span id="idealCalories">—</span> <em>cal</em> 🔥</strong><p id="idealSubtitle">Set profile to calculate</p></div>
-            <div class="rings">
-              <div class="ring-card"><h3>Food</h3><div class="ring" style="--p:0" id="foodRing"><div><strong id="foodLogged">0</strong><small>eaten</small></div></div><p><strong id="foodLeft">—</strong><span>of <b id="foodBudgetSmall">—</b> cal</span></p></div>
-              <div class="ring-card"><h3>Movement</h3><div class="ring blue" style="--p:0" id="moveRing"><div><strong id="moveDone">0</strong><small>/ <b id="moveTargetSmall">500</b> cal</small></div></div><p><strong id="moveLeft">—</strong><span>of <b id="moveBudgetSmall">500</b> cal</span></p></div>
-            </div>
+        <div class="pain-row" id="painRow">
+          <button data-pain="green" class="pain green">Green<br><span>0–2</span></button>
+          <button data-pain="yellow" class="pain yellow">Yellow<br><span>3</span></button>
+          <button data-pain="red" class="pain red">Red<br><span>4+</span></button>
+          <button data-pain="nerve" class="pain nerve">Nerve<br><span>tingle</span></button>
+        </div>
+        <p id="painMessage" class="coach-note">Choose your elbow status so CTA can select safe training.</p>
+      </section>
+
+      <section class="card budget-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Card 2</p>
+            <h2>Today’s Calorie Budget</h2>
           </div>
-          <div class="live-balance" id="liveBalance"><div><span id="balanceIcon">✅</span><strong id="balanceTitle">On Track</strong></div><p id="balanceNote">Log food and movement to see your live balance.</p></div>
-          <div class="quick-actions"><button data-action="openFood">🍏 Log Food</button><button data-action="openWorkout">👟 Log Workout</button><button data-tab="train">💜 Safe Workouts</button><button data-modal="goalModal">🎯 Adjust Goal</button></div>
-        </article>
-
-        <article class="card trainer-card">
-          <div class="card-head"><div class="step-title"><span class="step-num">3</span><h2>Trainer Recommendation</h2></div><button class="link-btn" id="refreshPlanBtn">Refresh plan ↻</button></div>
-          <div class="trainer-hero" id="trainerHero"></div>
-          <div class="session-list" id="todaySession"></div>
-          <div class="quick-actions"><button id="addRecommendedBtn">Add Recommended Workout</button><button data-open-generated="true">See Full Workout</button></div>
-        </article>
-
-        <article class="card plan-card">
-          <div class="card-head"><div class="step-title"><span class="step-num">4</span><h2>Today’s Full Plan</h2></div><button class="link-btn" data-tab="train">Open Trainer ›</button></div>
-          <div class="plan-grid" id="todayPlan"></div>
-        </article>
-        <p class="quote">💚 Progress means stronger, lighter, and not flared tomorrow. <span>You’ve got this.</span></p>
+          <span id="safetyBadge" class="badge">Set profile</span>
+        </div>
+        <div class="budget-grid">
+          <div class="metric"><span>Ideal Intake</span><strong id="idealIntake">—</strong></div>
+          <div class="metric"><span>Food Left</span><strong id="foodLeft">—</strong></div>
+          <div class="metric"><span>Movement Done</span><strong id="moveDone">0 / 500</strong></div>
+          <div class="metric"><span>Movement Left</span><strong id="moveLeft">500</strong></div>
+        </div>
+        <div class="progress-wrap"><div id="foodBar" class="bar food"></div></div>
+        <div class="progress-wrap"><div id="moveBar" class="bar move"></div></div>
+        <p id="balanceNote" class="coach-note">Log food and movement to see your live balance.</p>
       </section>
 
-      <section class="screen" id="logScreen">
-        <div class="screen-head"><h2>Food & Workout Log</h2><p>Track food, movement, and your budget in real time.</p></div>
-        <article class="card compact"><h3>Add Food</h3><div class="form-grid"><input id="foodName" placeholder="Food e.g. rice, adobo, gyro, Greek salad" /><input id="foodQty" placeholder="Qty e.g. 1 cup, 1 pc, 1 plate" /><input id="foodCals" type="number" min="0" placeholder="Calories" /><select id="mealType"><option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option><option>Drinks</option></select></div><div class="helper-row three"><button class="secondary" id="estimateFoodBtn">Estimate from library</button><button class="secondary" id="onlineFoodBtn">Search Online Calories</button><button class="secondary" id="saveCustomFoodBtn">Save to My Foods</button><button id="addFoodBtn">Add Food</button></div></article>
-        <article class="card compact online-lookup-card"><h3>Online Food Calorie Lookup</h3><p class="hint">Use this like the Google Translate button in your Greek app. Type the food and quantity, open an online calorie search, then enter the calories you find and save it to My Foods for next time.</p><div class="lookup-row"><button id="googleCaloriesBtn">Google Calories</button><button class="secondary" id="usdaCaloriesBtn">USDA FoodData Central</button><button class="secondary" id="copyLookupBtn">Copy Search Text</button></div><div id="onlineLookupResult" class="calc-preview">Example search: calories 1 cup rice or calories chicken souvlaki pita.</div></article>
-        <article class="card compact"><h3>Travel / Unknown Food Estimator</h3><p class="hint">Use this when you are abroad or eating restaurant food that is not in the library. It gives a practical estimate range, not a fake exact number.</p><div class="form-grid"><select id="travelFoodType"><option value="mixed">Mixed plate / restaurant meal</option><option value="leanProtein">Lean protein dish</option><option value="fattyProtein">Fatty meat / rich protein</option><option value="ricePasta">Rice / pasta / noodles</option><option value="breadWrap">Sandwich / wrap / gyro / pita</option><option value="salad">Salad with toppings</option><option value="soup">Soup / stew</option><option value="dessert">Dessert</option><option value="drink">Calorie drink</option></select><select id="travelPortion"><option value="small">Small</option><option value="regular" selected>Regular</option><option value="large">Large</option><option value="shared">Shared / half portion</option></select><select id="travelMethod"><option value="standard">Standard</option><option value="grilled">Grilled / steamed</option><option value="saucy">Saucy / oily</option><option value="fried">Fried</option><option value="creamy">Creamy / cheesy</option><option value="sugary">Sugary drink/dessert</option></select><button id="travelEstimateBtn">Estimate & Fill Food</button></div><div id="travelEstimateResult" class="calc-preview">Choose type, portion, and cooking style.</div></article>
-        <article class="card compact"><h3>Add Movement</h3><div class="form-grid"><input id="workoutName" placeholder="Activity e.g. walk, lower body" /><input id="workoutMins" type="number" min="0" placeholder="Minutes" /><input id="workoutCals" type="number" min="0" placeholder="Calories burned" /><select id="workoutType"><option>Walking</option><option>Generated Workout</option><option>Lower Body</option><option>Conditioning</option><option>Core</option><option>Rehab</option><option>Wall Pilates</option><option>Chair</option><option>Other</option></select></div><div class="helper-row"><button class="secondary" id="estimateWorkoutBtn">Estimate walking</button><button id="addWorkoutBtn">Add Movement</button></div></article>
-        <article class="card compact"><h3>Today’s Entries</h3><div id="entryList" class="entry-list"></div></article>
+      <nav class="tabs">
+        <button class="tab active" data-tab="train">Train</button>
+        <button class="tab" data-tab="food">Food</button>
+        <button class="tab" data-tab="import">Import</button>
+        <button class="tab" data-tab="progress">Progress</button>
+        <button class="tab" data-tab="library">Library</button>
+      </nav>
+
+      <section id="train" class="tab-panel active">
+        <div class="card">
+          <div class="section-heading"><div><p class="eyebrow">Coach Engine</p><h2>Coach Selected Workouts</h2></div></div>
+          <div class="grid two">
+            <label>Coach focus
+              <select id="focusInput">
+                <option value="balanced">Balanced</option>
+                <option value="burn">More calorie burn</option>
+                <option value="strength">More lower-body strength</option>
+                <option value="recovery">More recovery-safe</option>
+                <option value="short">Shorter workouts</option>
+              </select>
+            </label>
+            <label>Week in cycle <input id="weekInput" type="number" min="1" max="52" value="1" /></label>
+          </div>
+          <button class="primary full" id="generateBtn">Generate Today’s Workout</button>
+          <div id="coachOptions" class="option-grid"></div>
+        </div>
+        <div id="activeWorkout" class="card workout-card hidden"></div>
       </section>
 
-      <section class="screen" id="trainScreen">
-        <div class="screen-head"><h2>Adaptive Trainer</h2><p>The app builds a complete daily routine: cardio, lower body, core, posture, and rehab — with chair and wall Pilates variety.</p></div>
-        <article class="card compact"><h3>Auto Workout Generator</h3><div id="generatorSummary" class="generator-summary"></div><div class="helper-row"><button id="generateBtn">Generate Today’s Safe Workout</button><button class="secondary" id="nextVarBtn">Try Another Variation</button></div><p class="hint">Generate now opens the workout below automatically. Every generated routine includes cardio, lower body, core, posture, and rehab blocks.</p></article>
-        <article class="card compact" id="generatedWorkoutCard"><h3>Today’s Generated Workout</h3><div id="generatedWorkout" class="generated-workout"></div></article>
-        <article class="card compact"><h3>Monthly Progression Map</h3><div id="phaseMap" class="phase-map"></div></article>
-        <article class="card compact"><h3>Workout Library</h3><div class="filter-pills" id="workoutFilters"></div><div id="exerciseLibrary" class="exercise-library"></div></article>
+      <section id="food" class="tab-panel">
+        <div class="card">
+          <h2>Food Log</h2>
+          <div class="grid two">
+            <label>Meal
+              <select id="mealInput"><option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option><option>Drinks</option></select>
+            </label>
+            <label>Quantity <input id="qtyInput" placeholder="1 cup / 1 plate / 1 piece" /></label>
+            <label class="span2">Food <input id="foodInput" placeholder="rice, Greek salad, chicken souvlaki pita" /></label>
+            <label>Calories <input id="calInput" type="number" placeholder="estimate" /></label>
+            <button class="small" id="estimateBtn">Estimate</button>
+          </div>
+          <div class="row-actions">
+            <button class="primary" id="addFoodBtn">Add Food</button>
+            <button class="ghost" id="googleBtn">Google Calories</button>
+            <button class="ghost" id="usdaBtn">USDA Lookup</button>
+            <button class="ghost" id="copySearchBtn">Copy Calorie Search</button>
+          </div>
+          <p class="coach-note" id="copyNote">Online lookup opens a search; enter the calories back here and save.</p>
+          <div id="foodLog" class="log-list"></div>
+        </div>
       </section>
 
-      <section class="screen" id="progressScreen">
-        <div class="screen-head"><h2>Progress</h2><p>Track weight, waist, elbow trend, food and movement consistency.</p></div>
-        <article class="card compact"><h3>Today’s Summary</h3><div class="summary-grid"><div><small>Food</small><strong id="sumFood">0</strong></div><div><small>Movement</small><strong id="sumMove">0</strong></div><div><small>Ideal Intake</small><strong id="sumIdeal">0</strong></div><div><small>Elbow</small><strong id="sumPain">Green</strong></div></div></article>
-        <article class="card compact"><h3>Body Check-in</h3><div class="form-grid two"><input id="weightInput" type="number" step="0.1" placeholder="Weight today" /><input id="waistInput" type="number" step="0.1" placeholder="Waist today" /></div><button id="saveBodyBtn">Save Body Check-in</button><div id="bodyHistory" class="entry-list"></div></article>
-        <article class="card compact"><h3>Training Trend</h3><div id="trainingTrend" class="entry-list"></div></article>
+      <section id="import" class="tab-panel">
+        <div class="card">
+          <p class="eyebrow">CTA v3.0</p>
+          <h2>Health / Garmin Import</h2>
+          <p class="coach-note">For this web-app version, copy your active calories, steps, or workout minutes from Apple Health or Garmin Connect. CTA will update the Movement Done counter.</p>
+          <div class="grid two">
+            <label>Source
+              <select id="sourceInput"><option>Apple Health</option><option>Garmin Connect</option><option>Manual workout</option><option>Treadmill / Machine</option></select>
+            </label>
+            <label>Workout type
+              <select id="workoutTypeInput"><option>Walking</option><option>Chair workout</option><option>Wall Pilates</option><option>Lower-body strength</option><option>Other safe movement</option></select>
+            </label>
+            <label>Steps <input id="stepsInput" type="number" placeholder="optional" /></label>
+            <label>Minutes <input id="minutesInput" type="number" placeholder="optional" /></label>
+            <label>Active calories <input id="activeCalInput" type="number" placeholder="required or estimate" /></label>
+            <button class="small" id="estimateMoveBtn">Estimate from minutes</button>
+          </div>
+          <button class="primary full" id="importMoveBtn">Import Movement</button>
+          <div id="movementLog" class="log-list"></div>
+        </div>
       </section>
 
-      <section class="screen" id="libraryScreen">
-        <div class="screen-head"><h2>Library</h2><p>Rules, safe exercise notes, and common calorie estimates.</p></div>
-        <article class="card compact"><h3>Avoid For Now</h3><ul class="clean-list"><li>Pushups, planks, all-fours, downward dog</li><li>Dumbbells, kettlebells, bands held in the hands</li><li>Rows, carries, dead hangs, heavy bags</li><li>Any movement causing immediate elbow pain</li></ul></article>
-        <article class="card compact"><h3>Food Library + My Foods</h3><p class="hint">Search built-in Filipino, Greek/travel, snacks, drinks, and your saved custom foods. For unknown restaurant meals, use the Travel Estimator in the Log tab.</p><input id="foodSearch" class="wide-input" placeholder="Search food, category, Greek, Filipino, drink..." /><div id="foodLibrary" class="library-grid"></div></article>
-        <article class="card compact"><h3>Green / Yellow / Red Rules</h3><ul class="clean-list"><li><b>Green:</b> train safely and progress slowly.</li><li><b>Yellow:</b> maintain. Use walking, mobility, recovery core; no progression.</li><li><b>Red:</b> recovery day. Do not chase calories with pain.</li><li><b>Nerve symptoms:</b> avoid loading and consider medical assessment.</li></ul></article>
+      <section id="progress" class="tab-panel">
+        <div class="card">
+          <h2>Progress Check-In</h2>
+          <div class="grid two">
+            <label>Weight today <input id="checkWeight" type="number" step="0.1" /></label>
+            <label>Waist today <input id="checkWaist" type="number" step="0.1" /></label>
+          </div>
+          <button class="primary full" id="saveCheckinBtn">Save Check-In</button>
+          <div id="progressLog" class="log-list"></div>
+        </div>
+      </section>
+
+      <section id="library" class="tab-panel">
+        <div class="card">
+          <h2>Workout Library</h2>
+          <p class="coach-note">CTA includes cardio, lower body, core, posture, rehab, chair, and wall Pilates movements. Unsafe arm-loading moves stay locked.</p>
+          <div id="libraryList" class="library-list"></div>
+        </div>
       </section>
     </main>
-
-    <nav class="bottom-nav" aria-label="Main navigation"><button class="active" data-tab="today">🏠<span>Today</span></button><button data-tab="log">📋<span>Log</span></button><button data-tab="train">🏋️<span>Train</span></button><button data-tab="progress">📊<span>Progress</span></button><button data-tab="library">📚<span>Library</span></button></nav>
   </div>
-
-  <dialog id="profileModal" class="modal"><form method="dialog" class="modal-card profile-modal-card"><h2>Profile & Calorie Setup</h2><p class="hint">Used only on this device to estimate maintenance calories and training level.</p><div class="form-grid two"><label>Name<input id="profileName" placeholder="Aileen" /></label><label>Sex<select id="profileSex"><option value="female">Female</option><option value="male">Male</option></select></label><label>Age<input id="profileAge" type="number" min="12" placeholder="56" /></label><label>Weight unit<select id="profileUnit"><option value="lb">lb</option><option value="kg">kg</option></select></label><label>Weight<input id="profileWeight" type="number" step="0.1" placeholder="Current weight" /></label><label>Height unit<select id="profileHeightUnit"><option value="cm">cm</option><option value="ftin">ft/in</option></select></label><label id="heightCmLabel">Height cm<input id="profileHeightCm" type="number" step="0.1" placeholder="e.g. 160" /></label><label id="heightFtLabel" class="hidden">Height ft/in<div class="inline-inputs"><input id="profileHeightFt" type="number" placeholder="ft" /><input id="profileHeightIn" type="number" placeholder="in" /></div></label><label>Usual activity<select id="profileActivity"><option value="1.2">Sedentary</option><option value="1.375">Lightly active</option><option value="1.55">Moderately active</option></select></label><label>Target loss / week<select id="profileLoss"><option value="0.5">0.5 lb/week</option><option value="1">1 lb/week</option><option value="1.5" selected>1.5 lb/week</option><option value="2">2 lb/week</option><option value="2.5">2.5 lb/week</option><option value="3">3 lb/week</option><option value="3.5">3.5 lb/week</option><option value="4">4 lb/week</option><option value="4.5">4.5 lb/week</option><option value="5">5 lb/week</option></select></label><label>Planned movement calories/day<input id="profileMove" type="number" value="500" /></label></div><div class="calc-preview" id="profileCalcPreview">Enter your profile to calculate.</div><div class="modal-actions"><button type="button" class="secondary" id="calcProfileBtn">Preview</button><button type="submit" id="saveProfileBtn">Save Profile</button></div></form></dialog>
-  <dialog id="goalModal" class="modal"><form method="dialog" class="modal-card"><h2>Adjust Goal</h2><div class="form-grid"><label>Maintenance calories<input id="maintenanceInput" type="number" /></label><label>Target loss / week<input id="lossInput" type="number" step="0.1" min="0.5" max="5" /></label><label>Planned movement calories<input id="plannedMoveInput" type="number" /></label></div><div class="modal-actions"><button class="secondary">Cancel</button><button id="saveGoalBtn">Save</button></div></form></dialog>
-  <dialog id="budgetInfo" class="modal"><form method="dialog" class="modal-card"><h2>How budget works</h2><p><b>Ideal intake = maintenance + planned movement calories − target deficit.</b></p><p>The live counter then shows food left, movement left, and whether you are on track. Targets above 2 lb/week are very aggressive; use the warning label and do not use painful exercise to “earn” food.</p><button>Close</button></form></dialog>
-  <dialog id="elbowInfo" class="modal"><form method="dialog" class="modal-card"><h2>Elbow safety rules</h2><p><b>Green:</b> safe training. <b>Yellow:</b> maintain, avoid progression. <b>Red:</b> recovery only. <b>Nerve:</b> avoid loading and consider medical assessment.</p><p>The trainer hides gripping, all-fours, planks, pushups, dumbbells, and hand-held bands.</p><button>Close</button></form></dialog>
 
   <script src="app.js"></script>
 </body>
